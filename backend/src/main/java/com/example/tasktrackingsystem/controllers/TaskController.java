@@ -3,12 +3,14 @@ package com.example.tasktrackingsystem.controllers;
 import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.dto.TaskDto;
+import com.example.tasktrackingsystem.model.Status;
 import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +32,7 @@ public class TaskController {
      * Used by the Admin Panel to view all transactions.
      */
     @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<List<TaskDto>> getAllTasks() {
         return ResponseEntity.ok(taskService.getAllTasks());
     }
@@ -40,6 +43,34 @@ public class TaskController {
     @GetMapping("/{taskId}")
     public ResponseEntity<TaskDto> getTaskById(@PathVariable Long taskId) {
         return ResponseEntity.ok(taskService.getTaskById(taskId));
+    }
+
+    /**
+     * Retrieves only the tasks belonging to the currently authenticated user.
+     */
+    @GetMapping("/my-tasks")
+    public ResponseEntity<List<TaskDto>> getMyTasks(@AuthenticationPrincipal PersonDto personDto) {
+        Long userId = Long.valueOf(personDto.getPersonId());
+        return ResponseEntity.ok(taskService.getTasksByUserId(userId));
+    }
+
+    @GetMapping("/my-tasks/filter")
+    public ResponseEntity<List<TaskDto>> getMyTasksByStatus(
+            @AuthenticationPrincipal PersonDto personDto,
+            @RequestParam Status status
+    ) {
+        Long userId = Long.valueOf(personDto.getPersonId());
+        return ResponseEntity.ok(taskService.getTasksByUserIdAndStatus(userId, status));
+    }
+
+    /**
+     * Filters all tasks by the provided Status enum.
+     * Used by the Admin Panel to view all transactions by Status.
+     */
+    @GetMapping("/status/{status}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<List<TaskDto>> getTasksByStatus(@PathVariable Status status) {
+        return ResponseEntity.ok(taskService.getTasksByStatus(status));
     }
 
     /**

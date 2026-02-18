@@ -24,11 +24,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TaskService {
 
-    @Autowired
-    private TaskRepository taskRepository;
-
-    @Autowired
-    private PersonService personService;
+    private final TaskRepository taskRepository;
+    private final PersonService personService;
 
     /**
      * Creates a new task associated with a specific user.
@@ -47,8 +44,6 @@ public class TaskService {
         // Create the Person entity from the DTO data
         Person owner = new Person();
         owner.setPersonId(Long.valueOf(dto.getPersonId()));
-        owner.setFullName(dto.getFullName());
-        owner.setUsername(dto.getUsername());
 
         // Link Task to Person
         task.setPerson(owner);
@@ -61,15 +56,14 @@ public class TaskService {
     }
 
     /**
-     * Updates the tracking status of an existing task.
-     * Logical flow: To Do -> In Progress -> Completed.
+     * Updates an existing task's title, description, and tracking status.
      * @param id The ID of the task to update.
-     * @param details The new status to apply.
-     * @return The updated task.
+     * @param details The updated task details.
+     * @return The updated task DTO.
      */
     @Transactional
     public TaskDto updateTask(Long id, CreateTaskDto details) {
-
+        // Check if Task exist
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Task not found with ID: " + id));
 
@@ -109,7 +103,7 @@ public class TaskService {
      * Retrieves a task by its unique ID.
      * @param id The ID of the task.
      * @return The task if found.
-     * @throws EntityNotFoundException if the task does not exist (TC_003).
+     * @throws EntityNotFoundException if the task does not exist.
      */
     public TaskDto getTaskById(Long id) {
         return taskRepository.findById(id)
@@ -122,17 +116,33 @@ public class TaskService {
      * @param userId The ID of the owner.
      * @return List of tasks.
      */
-    public List<Task> getTasksByUserId(Long userId) {
-        return taskRepository.findByUserId(userId);
+    public List<TaskDto> getTasksByUserId(Long userId) {
+        return taskRepository.findByPersonPersonId(userId).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Retrieves tasks for a specific user filtered by status.
+     * @param userId The ID of the owner.
+     * @param status The status to filter by.
+     * @return List of matching TaskDto.
+     */
+    public List<TaskDto> getTasksByUserIdAndStatus(Long userId, Status status) {
+        return taskRepository.findByPersonPersonIdAndTrackingStatus(userId, status).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
     /**
      * Retrieves tasks by status.
-     * @param status The status string.
+     * @param status The Status enum to filter by.
      * @return List of matching tasks.
      */
-    public List<Task> getTasksByStatus(String status) {
-        return taskRepository.findByTrackingStatus(status);
+    public List<TaskDto> getTasksByStatus(Status status) {
+        return taskRepository.findByTrackingStatus(status).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
     // Mapping Methods
