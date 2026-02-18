@@ -19,7 +19,7 @@ public class Task {
     private Long id;
 
     @NotBlank(message = "Title is required")
-    @Size(max = 100, message = "Title must be under 100 characters") // Requirement TC_010
+    @Size(max = 100, message = "Title must be under 100 characters")
     @Column(nullable = false)
     private String title;
 
@@ -29,9 +29,9 @@ public class Task {
     // "Tracking" status
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private Status trackingStatus = Status.TRACKING; // Default "Tracking" status
+    private Status trackingStatus = Status.TO_DO; // Default "TO_DO" status
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "person_id", nullable = false)
+    private Person person;
 }

@@ -1,6 +1,8 @@
 package com.example.tasktrackingsystem.controllers;
 
+import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
+import com.example.tasktrackingsystem.dto.TaskDto;
 import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.service.TaskService;
 import jakarta.validation.Valid;
@@ -28,7 +30,7 @@ public class TaskController {
      * Used by the Admin Panel to view all transactions.
      */
     @GetMapping
-    public ResponseEntity<List<Task>> getAllTasks() {
+    public ResponseEntity<List<TaskDto>> getAllTasks() {
         return ResponseEntity.ok(taskService.getAllTasks());
     }
 
@@ -36,7 +38,7 @@ public class TaskController {
      * Retrieves a specific task by its ID.
      */
     @GetMapping("/{taskId}")
-    public ResponseEntity<Task> getTaskById(@PathVariable Long taskId) {
+    public ResponseEntity<TaskDto> getTaskById(@PathVariable Long taskId) {
         return ResponseEntity.ok(taskService.getTaskById(taskId));
     }
 
@@ -44,19 +46,22 @@ public class TaskController {
      * Creates a new task.
      */
     @PostMapping
-    public ResponseEntity<Task> createNewTask(
-            @Valid @RequestBody Task task,
+    public ResponseEntity<TaskDto> createNewTask(
+            @Valid @RequestBody CreateTaskDto taskDto,
             @AuthenticationPrincipal PersonDto personDto
     ) {
-        // Pass the username from the security context to the service
-        return new ResponseEntity<>(taskService.createTask(task, Long.valueOf(personDto.getPersonId())), HttpStatus.CREATED);
+        Long userId = Long.valueOf(personDto.getPersonId());
+        return new ResponseEntity<>(taskService.createTask(taskDto, userId), HttpStatus.CREATED);
     }
 
     /**
      * Updates an existing task.
      */
     @PutMapping("/{taskId}")
-    public ResponseEntity<Task> updateTask(@PathVariable Long taskId, @Valid @RequestBody Task taskDetails) {
+    public ResponseEntity<TaskDto> updateTask(
+            @PathVariable Long taskId,
+            @Valid @RequestBody CreateTaskDto taskDetails
+    ) {
         return ResponseEntity.ok(taskService.updateTask(taskId, taskDetails));
     }
 
