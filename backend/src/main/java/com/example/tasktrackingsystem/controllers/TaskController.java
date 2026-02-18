@@ -8,6 +8,10 @@ import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,14 +31,18 @@ public class TaskController {
 
     private final TaskService taskService;
 
+    @Value("${page.size}")
+    private int pageSize;
+
     /**
      * Retrieves all tasks in the system.
      * Used by the Admin Panel to view all transactions.
      */
-    @GetMapping
+    @GetMapping("/paginated/{pageNumber}")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<List<TaskDto>> getAllTasks() {
-        return ResponseEntity.ok(taskService.getAllTasks());
+    public ResponseEntity<Page<TaskDto>> getAllTasks(@PathVariable int pageNumber) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getAllTasks(pageable));
     }
 
     /**
@@ -48,29 +56,42 @@ public class TaskController {
     /**
      * Retrieves only the tasks belonging to the currently authenticated user.
      */
-    @GetMapping("/my-tasks")
-    public ResponseEntity<List<TaskDto>> getMyTasks(@AuthenticationPrincipal PersonDto personDto) {
-        Long userId = Long.valueOf(personDto.getPersonId());
-        return ResponseEntity.ok(taskService.getTasksByUserId(userId));
-    }
-
-    @GetMapping("/my-tasks/filter")
-    public ResponseEntity<List<TaskDto>> getMyTasksByStatus(
+    @GetMapping("/my-tasks/paginated/{pageNumber}")
+    public ResponseEntity<Page<TaskDto>> getMyTasks(
             @AuthenticationPrincipal PersonDto personDto,
-            @RequestParam Status status
+            @PathVariable int pageNumber
     ) {
         Long userId = Long.valueOf(personDto.getPersonId());
-        return ResponseEntity.ok(taskService.getTasksByUserIdAndStatus(userId, status));
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getTasksByUserId(userId, pageable));
+    }
+
+    /**
+     * User: Filters personal tasks by status paginated.
+     */
+    @GetMapping("/my-tasks/filter/paginated/{pageNumber}")
+    public ResponseEntity<Page<TaskDto>> getMyTasksByStatus(
+            @AuthenticationPrincipal PersonDto personDto,
+            @RequestParam Status status,
+            @PathVariable int pageNumber
+    ) {
+        Long userId = Long.valueOf(personDto.getPersonId());
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getTasksByUserIdAndStatus(userId, status, pageable));
     }
 
     /**
      * Filters all tasks by the provided Status enum.
      * Used by the Admin Panel to view all transactions by Status.
      */
-    @GetMapping("/status/{status}")
+    @GetMapping("/status/{status}/paginated/{pageNumber}")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<List<TaskDto>> getTasksByStatus(@PathVariable Status status) {
-        return ResponseEntity.ok(taskService.getTasksByStatus(status));
+    public ResponseEntity<Page<TaskDto>> getTasksByStatus(
+            @PathVariable Status status,
+            @PathVariable int pageNumber
+    ) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getTasksByStatus(status, pageable));
     }
 
     /**

@@ -10,6 +10,8 @@ import com.example.tasktrackingsystem.repository.TaskRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,10 +95,8 @@ public class TaskService {
      * Retrieves all tasks in the system.
      * @return A list of all tasks.
      */
-    public List<TaskDto> getAllTasks() {
-        return taskRepository.findAll().stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+    public Page<TaskDto> getAllTasks(Pageable pageable) {
+        return taskRepository.findAll(pageable).map(this::convertToDto);
     }
 
     /**
@@ -116,10 +116,8 @@ public class TaskService {
      * @param userId The ID of the owner.
      * @return List of tasks.
      */
-    public List<TaskDto> getTasksByUserId(Long userId) {
-        return taskRepository.findByPersonPersonId(userId).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+    public Page<TaskDto> getTasksByUserId(Long userId, Pageable pageable) {
+        return taskRepository.findByPersonPersonId(userId, pageable).map(this::convertToDto);
     }
 
     /**
@@ -128,10 +126,8 @@ public class TaskService {
      * @param status The status to filter by.
      * @return List of matching TaskDto.
      */
-    public List<TaskDto> getTasksByUserIdAndStatus(Long userId, Status status) {
-        return taskRepository.findByPersonPersonIdAndTrackingStatus(userId, status).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+    public Page<TaskDto> getTasksByUserIdAndStatus(Long userId, Status status, Pageable pageable) {
+        return taskRepository.findByPersonPersonIdAndTrackingStatus(userId, status, pageable).map(this::convertToDto);
     }
 
     /**
@@ -139,10 +135,8 @@ public class TaskService {
      * @param status The Status enum to filter by.
      * @return List of matching tasks.
      */
-    public List<TaskDto> getTasksByStatus(Status status) {
-        return taskRepository.findByTrackingStatus(status).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+    public Page<TaskDto> getTasksByStatus(Status status, Pageable pageable) {
+        return taskRepository.findByTrackingStatus(status, pageable).map(this::convertToDto);
     }
 
     // Mapping Methods

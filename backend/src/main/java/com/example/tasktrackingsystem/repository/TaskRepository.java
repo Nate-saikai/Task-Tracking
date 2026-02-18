@@ -2,6 +2,8 @@ package com.example.tasktrackingsystem.repository;
 
 import com.example.tasktrackingsystem.model.Status;
 import com.example.tasktrackingsystem.model.Task;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
@@ -16,22 +18,25 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     /**
      * Finds all tasks associated with a specific user.
      * @param personId The ID of the user whose tasks are being retrieved.
+     * @param pageable the pagination information.
      * @return A list of tasks belonging to the specified user.
      */
-    List<Task> findByPersonPersonId(Long personId);
+    Page<Task> findByPersonPersonId(Long personId, Pageable pageable);
 
     /**
      * Finds tasks by their tracking status.
      * @param trackingStatus The status string to filter by.
+     * @param pageable the pagination information.
      * @return A list of tasks matching the given status.
      */
-    List<Task> findByTrackingStatus(Status trackingStatus);
+    Page<Task> findByTrackingStatus(Status trackingStatus, Pageable pageable);
 
     /**
      * Finds all tasks for a specific user filtered by status.
      * @param personId The ID of the owner.
      * @param trackingStatus The status to filter.
+     * @param pageable the pagination information.
      * @return A filtered list of tasks for the user.
      */
-    List<Task> findByPersonPersonIdAndTrackingStatus(Long personId, Status trackingStatus);
+    Page<Task> findByPersonPersonIdAndTrackingStatus(Long personId, Status trackingStatus, Pageable pageable);
 }
