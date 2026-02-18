@@ -1,5 +1,6 @@
 package com.example.tasktrackingsystem.controllers;
 
+import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.service.TaskService;
 import jakarta.validation.Valid;
@@ -45,10 +46,10 @@ public class TaskController {
     @PostMapping
     public ResponseEntity<Task> createNewTask(
             @Valid @RequestBody Task task,
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal PersonDto personDto
     ) {
         // Pass the username from the security context to the service
-        return new ResponseEntity<>(taskService.createTask(task, userDetails.getId()), HttpStatus.CREATED);
+        return new ResponseEntity<>(taskService.createTask(task, Long.valueOf(personDto.getPersonId())), HttpStatus.CREATED);
     }
 
     /**
