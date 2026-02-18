@@ -37,7 +37,7 @@ public class AuthController {
     /**
      * Register response entity.
      *
-     * @param createPersonDto the create person dto
+     * @param createPersonDto the createPerson dto
      * @param response        the response
      * @return the response entity
      */

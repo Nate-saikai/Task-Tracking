@@ -19,7 +19,7 @@ import java.util.List;
  * Provides endpoints for CRUD operations and filtering by user or status.
  */
 @RestController
-@RequestMapping("/api/tasks")
+@RequestMapping("${api.path.tasks}")
 @RequiredArgsConstructor
 public class TaskController {
 
@@ -56,6 +56,7 @@ public class TaskController {
 
     /**
      * Updates an existing task.
+     * @param taskDetails reuses {@link CreateTaskDto} for same field update
      */
     @PutMapping("/{taskId}")
     public ResponseEntity<TaskDto> updateTask(
