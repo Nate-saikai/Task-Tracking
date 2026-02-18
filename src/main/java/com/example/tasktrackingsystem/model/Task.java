@@ -28,7 +28,8 @@ public class Task {
 
     // "Tracking" status
     @Column(nullable = false)
-    private String trackingStatus;
+    @Enumerated(EnumType.STRING)
+    private Status trackingStatus = Status.TRACKING;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
