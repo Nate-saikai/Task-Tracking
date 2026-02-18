@@ -3,10 +3,13 @@ package com.example.tasktrackingsystem.service;
 import com.example.tasktrackingsystem.dto.*;
 import com.example.tasktrackingsystem.dto.CreatePersonDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
+import com.example.tasktrackingsystem.exceptions.InvalidInputException;
+import com.example.tasktrackingsystem.exceptions.PersonNotFoundException;
 import com.example.tasktrackingsystem.model.Person;
 import com.example.tasktrackingsystem.model.Role;
 import com.example.tasktrackingsystem.repository.PersonRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,7 +46,7 @@ public class PersonService {
     public PersonDto findById(Long id) {
         return personRepository.findById(id)
                 .map(this::convertToDto)
-                .orElseThrow(() -> new EntityNotFoundException("Person with id " + id + " not found"));
+                .orElseThrow(() -> new PersonNotFoundException("Person with id " + id + " not found"));
     }
 
     /**
@@ -53,7 +56,12 @@ public class PersonService {
      */
 // Get All Person
     public List<PersonDto> findAll() {
-        return personRepository.findAll().stream().map(this::convertToDto).toList();
+
+        List<PersonDto> list = personRepository.findAll().stream().map(this::convertToDto).toList();
+
+        if (list.isEmpty()) throw new PersonNotFoundException("No users found");
+
+        return list;
     }
 
     /**
@@ -64,7 +72,12 @@ public class PersonService {
      */
 // Get All Person Paginated
     public List<PersonDto> findAllPaginated(Pageable pageable) {
-        return personRepository.findAll(pageable).map(this::convertToDto).toList();
+
+        List<PersonDto> list = personRepository.findAll(pageable).map(this::convertToDto).toList();
+
+        if (list.isEmpty()) throw new PersonNotFoundException("No users found");
+
+        return list;
     }
 
     /**
@@ -95,7 +108,7 @@ public class PersonService {
 // Create Person
     public PersonDto create(CreatePersonDto createPersonDto) {
         if (personRepository.existsByUsername(createPersonDto.getUsername())) {
-            throw new IllegalStateException("Username is already taken.");
+            throw new DuplicateKeyException("Username is already taken.");
         }
         createPersonDto.setPassword(passwordEncoder.encode(createPersonDto.getPassword()));
         return convertToDto(personRepository.save(convertToEntity(createPersonDto)));
@@ -111,14 +124,14 @@ public class PersonService {
 // Update Person
     public PersonDto patchProfile(Long id, PatchPersonProfileDto dto) {
         Person person = personRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Person with id " + id + " not found"));
+                .orElseThrow(() -> new PersonNotFoundException("Person with id " + id + " not found"));
 
         boolean changed = false;
 
         if (dto.getFullName() != null) {
             String name = dto.getFullName().trim();
             if (name.isEmpty()) {
-                throw new IllegalArgumentException("Full name must not be blank.");
+                throw new InvalidInputException("Full name must not be blank.");
             }
             person.setFullName(name);
             changed = true;
@@ -127,12 +140,12 @@ public class PersonService {
         if (dto.getUsername() != null) {
             String uname = dto.getUsername().trim();
             if (uname.isEmpty()) {
-                throw new IllegalArgumentException("Username must not be blank.");
+                throw new InvalidInputException("Username must not be blank.");
             }
 
             if (!uname.equals(person.getUsername())
                     && personRepository.existsByUsernameAndPersonIdNot(uname, id)) {
-                throw new IllegalStateException("Username is already taken.");
+                throw new DuplicateKeyException("Username is already taken.");
             }
 
             person.setUsername(uname);
@@ -157,14 +170,14 @@ public class PersonService {
 // Change pass
     public PersonDto changePassword(Long id, ChangePasswordDto dto) {
         Person person = personRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Person with id " + id + " not found"));
+                .orElseThrow(() -> new PersonNotFoundException("Person with id " + id + " not found"));
 
         if (!passwordEncoder.matches(dto.getCurrentPassword(), person.getPassword())) {
             throw new BadCredentialsException("Current password is incorrect.");
         }
 
         if (passwordEncoder.matches(dto.getNewPassword(), person.getPassword())) {
-            throw new IllegalArgumentException("New password must be different from the current password.");
+            throw new InvalidInputException("New password must be different from the current password.");
         }
 
         person.setPassword(passwordEncoder.encode(dto.getNewPassword()));
@@ -181,7 +194,7 @@ public class PersonService {
 // Delete Person
     public void delete(Long id) {
         Person person = personRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Person with id " + id + " not found"));
+                .orElseThrow(() -> new PersonNotFoundException("Person with id " + id + " not found"));
         personRepository.delete(person);
     }
 

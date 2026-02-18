@@ -87,7 +87,7 @@ public class PersonController {
     /**
      * Create admin response entity.
      *
-     * @param createPersonDto the create person dto
+     * @param createPersonDto the createPerson dto
      * @return the response entity
      */
 // Create
@@ -100,7 +100,7 @@ public class PersonController {
     /**
      * Create user response entity.
      *
-     * @param createPersonDto the create person dto
+     * @param createPersonDto the createPerson dto
      * @return the response entity
      */
     @PostMapping("/register-user")

@@ -19,7 +19,6 @@ public class CreatePersonDto {
     @NotNull(message = "Full name must not be null.")
     private String fullName;
 
-    @NotNull(message = "Role must not be null.")
     private String role;
 
     @Size(min = 8, max = 50, message = "Username must be a minimum of 8 - 50 characters only.")

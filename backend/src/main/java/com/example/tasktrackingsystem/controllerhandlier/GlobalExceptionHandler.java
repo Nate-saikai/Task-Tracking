@@ -8,7 +8,8 @@ import java.util.stream.Collectors;
 import com.example.tasktrackingsystem.exceptions.InvalidInputException;
 import com.example.tasktrackingsystem.exceptions.StatusNotFoundException;
 import com.example.tasktrackingsystem.exceptions.TaskNotFoundException;
-import com.example.tasktrackingsystem.exceptions.UserNotFoundException;
+import com.example.tasktrackingsystem.exceptions.PersonNotFoundException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,6 +26,11 @@ import jakarta.validation.ConstraintViolationException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<ApiError> handleDuplicateKey(DuplicateKeyException ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, "DUPLICATE ENTRY", ex.getMessage(), req, null);
+    }
+
     @ExceptionHandler(InvalidInputException.class)
     public ResponseEntity<ApiError> handleInvalidInput(InvalidInputException ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "INVALID", ex.getMessage(), req, null);
@@ -40,8 +46,8 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, "TASK_NOT_FOUND", ex.getMessage(), req, null);
     }
 
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ApiError> handleUserNotFound(UserNotFoundException ex, HttpServletRequest req) {
+    @ExceptionHandler(PersonNotFoundException.class)
+    public ResponseEntity<ApiError> handlePersonNotFound(PersonNotFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex.getMessage(), req, null);
     }
 
