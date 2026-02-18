@@ -1,7 +1,7 @@
 package com.example.tasktrackingsystem.model;
 
 public enum Status {
-    TRACKING,
-    RECEIVED,
-    RETURN_TO_SENDER
+    TO_DO,
+    IN_PROGRESS,
+    COMPLETED
 }
