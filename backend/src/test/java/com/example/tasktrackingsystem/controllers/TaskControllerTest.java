@@ -1,23 +1,21 @@
 package com.example.tasktrackingsystem.controllers;
 
-import com.example.tasktrackingsystem.TaskTrackingSystemApplication;
 import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.TaskDto;
 import com.example.tasktrackingsystem.model.Status;
 import com.example.tasktrackingsystem.service.JwtService;
 import com.example.tasktrackingsystem.service.TaskService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -25,7 +23,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(classes = TaskTrackingSystemApplication.class)
+//@SpringBootTest(classes = TaskTrackingSystemApplication.class)
 @WebMvcTest(TaskController.class)
 public class TaskControllerTest {
 

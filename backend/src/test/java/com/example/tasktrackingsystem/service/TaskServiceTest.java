@@ -46,7 +46,7 @@ public class TaskServiceTest {
     @BeforeEach
     void setUp() {
         mockPersonDto = new PersonDto();
-        mockPersonDto.setPersonId("1");
+        mockPersonDto.setPersonId(1L);
         mockPersonDto.setFullName("Test User");
 
         createTaskDto = new CreateTaskDto();
