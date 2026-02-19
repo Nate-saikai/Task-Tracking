@@ -88,9 +88,9 @@ public class GlobalExceptionHandler {
                     argument != null ? argument.getSimpleName() : "?"
                 );
 
-        return build(HttpStatus.BAD_REQUEST, String.format("MISMATCH: %s is not %s",
-                required != null ? required.getSimpleName() : "?",
-                argument != null ? argument.getSimpleName() : "?"
+        return build(HttpStatus.BAD_REQUEST, String.format("MISMATCH: %s IS NOT %s",
+                required != null ? required.getSimpleName().toUpperCase() : "?",
+                argument != null ? argument.getSimpleName().toUpperCase() : "?"
                 ), message, req, null);
     }
 
