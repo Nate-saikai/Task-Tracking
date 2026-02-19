@@ -8,7 +8,6 @@ import com.example.tasktrackingsystem.exceptions.PersonNotFoundException;
 import com.example.tasktrackingsystem.model.Person;
 import com.example.tasktrackingsystem.model.Role;
 import com.example.tasktrackingsystem.repository.PersonRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
