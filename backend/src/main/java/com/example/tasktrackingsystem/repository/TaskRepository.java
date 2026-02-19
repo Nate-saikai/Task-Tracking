@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 /**
  * Repository interface for {@link Task} entities.
  * Provides standard CRUD operations and custom queries for task tracking.
@@ -38,4 +40,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
      * @return A filtered list of tasks for the user.
      */
     Page<Task> findByPersonPersonIdAndTrackingStatus(Long personId, Status trackingStatus, Pageable pageable);
+
+    Optional<Task> findFirstByPersonPersonIdAndTitleIgnoreCase(Long personId, String title);
 }

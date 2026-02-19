@@ -11,10 +11,13 @@ import com.example.tasktrackingsystem.model.Person;
 import com.example.tasktrackingsystem.repository.TaskRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 /**
  * Service class for managing {@link Task} operations.
@@ -37,6 +40,12 @@ public class TaskService {
     public TaskDto createTask(CreateTaskDto createTaskDto, Long userId) {
         // Find the user by username
         PersonDto dto = personService.findById(userId);
+
+        // Check if the user is already assigned the task
+        Optional<Task> exists = taskRepository.findFirstByPersonPersonIdAndTitleIgnoreCase(userId, createTaskDto.getTitle());
+        if (exists.isPresent()) {
+            throw new DuplicateKeyException(String.format("'%s' is already assigned to task '%s'", dto.getFullName(), createTaskDto.getTitle()));
+        }
 
         // Map CreateTaskDto to Task entity
         Task task = convertToEntity(createTaskDto);
@@ -75,8 +84,22 @@ public class TaskService {
             throw new InvalidInputException("You do not have permission to update this task.");
         }
 
-        task.setTitle(details.getTitle());
-        task.setDescription(details.getDescription());
+        // Check if rename title already a title for a task assigned to this user
+        Optional<Task> exists = taskRepository.findFirstByPersonPersonIdAndTitleIgnoreCase(userId, details.getTitle());
+        if (exists.isPresent()) {
+            throw new DuplicateKeyException(String.format("'%s' already has a task named '%s'", task.getPerson().getFullName(), details.getTitle()));
+        }
+
+
+        // Check if update title is not the same
+        if (!details.getTitle().equalsIgnoreCase(task.getTitle())) {
+            task.setTitle(details.getTitle());
+        }
+
+        // Check if update description is not blank and not the same
+        if (!details.getDescription().isBlank() && !details.getDescription().equalsIgnoreCase(task.getDescription())) {
+            task.setDescription(details.getDescription());
+        }
 
         if (details.getTrackingStatus() != null) {
             task.setTrackingStatus(details.getTrackingStatus());
