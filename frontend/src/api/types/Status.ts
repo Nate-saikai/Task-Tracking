@@ -1,0 +1,1 @@
+export type Status = 'TO_DO' | 'IN_PROGRESS' | 'COMPLETED';
