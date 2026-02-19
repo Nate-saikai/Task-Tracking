@@ -1,6 +1,7 @@
 package com.example.tasktrackingsystem.controllerhandlier;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,9 +56,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleArgsMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
         String message = "";
-        if (ex.getMessage().contains("Status") || ex.getMessage().contains("Role")) {
+        if (ex.getRequiredType() != null && ex.getRequiredType().isEnum()) {
+            String[] options = Arrays
+                    .stream(ex.getRequiredType().getEnumConstants())
+                    .map(e -> ((Enum<?>) e).name())
+                    .toArray(String[]::new);
+
             if (ex.getValue() != null) {
-                message = ex.getValue().toString() + " not part of available options";
+                message = String.format("'%s' not part of available options: %s",
+                        ex.getValue().toString(),
+                        Arrays.toString(options));
             } else {
                 message = "Null values not allowed";
             }
