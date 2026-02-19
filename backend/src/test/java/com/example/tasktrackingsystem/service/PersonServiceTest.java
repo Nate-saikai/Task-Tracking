@@ -1,5 +1,7 @@
 package com.example.tasktrackingsystem.service;
 
+import com.example.tasktrackingsystem.dto.CreatePersonDto;
+import com.example.tasktrackingsystem.dto.PatchPersonProfileDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.model.Person;
 import com.example.tasktrackingsystem.model.Role;
@@ -59,10 +61,13 @@ public class PersonServiceTest {
     @Test
     @DisplayName(value = "Person TC_002: Find all person without pagination")
     void TC_002(){
-        when(personService.findAll()).thenReturn(List.of(mockPersonDto));
+        when(personRepository.findAll()).thenReturn(List.of(mockPerson));
+
         List<PersonDto> result = personService.findAll();
+
         assertEquals(1, result.size());
-        assertEquals(mockPersonDto, result.getFirst());
+        assertEquals(mockPersonDto.getPersonId(), result.getFirst().getPersonId());
+        verify(personRepository, times(1)).findAll();
     }
 
     // Test for findAllPaginated
@@ -70,23 +75,78 @@ public class PersonServiceTest {
     @DisplayName(value = "Person TC_003: Find all person with pagination")
     void TC_003(){
         Pageable pageable = PageRequest.of(0, 5);
-        Page<PersonDto> personDtoPage = new PageImpl<>(List.of(mockPersonDto));
+        Page<Person> personPage = new PageImpl<>(List.of(mockPerson));
 
-        when(personService.findAllPaginated(pageable)).thenReturn(personDtoPage);
+        when(personRepository.findAll(pageable)).thenReturn(personPage);
 
-        assertEquals(1, personService.findAllPaginated(pageable).getTotalElements());
-        assertEquals(mockPersonDto, personService.findAllPaginated(pageable).getContent().getFirst());
+        Page<PersonDto> result = personService.findAllPaginated(pageable);
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals(mockPersonDto.getPersonId(), result.getContent().getFirst().getPersonId());
+        verify(personRepository, times(1)).findAll(pageable);
     }
 
     // Test for login
+    @Test
+    @DisplayName(value = "Person TC_004: Test Login")
+    void TC_004(){
+        when(personRepository.findByUsername(mockPerson.getUsername())).thenReturn(Optional.of(mockPerson));
+        when(passwordEncoder.matches(mockPerson.getPassword(), mockPerson.getPassword())).thenReturn(true);
+
+        PersonDto loggedInPersonDto = personService.login(mockPerson.getUsername(), mockPerson.getPassword());
+
+        assertEquals(loggedInPersonDto.getPersonId(), mockPerson.getPersonId());
+        verify(personRepository, times(1)).findByUsername(mockPerson.getUsername());
+    }
 
     // Test for create
+    @Test
+    @DisplayName(value = "Person TC_005: Test Create Person")
+    void TC_005(){
+        CreatePersonDto createDto = new CreatePersonDto(
+                mockPerson.getFullName(),
+                String.valueOf(mockPerson.getRole()),
+                mockPerson.getUsername(),
+                "password"
+        );
+
+        when(personRepository.existsByUsername(createDto.getUsername())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+        when(personRepository.save(any(Person.class))).thenReturn(mockPerson);
+
+        PersonDto result = personService.create(createDto);
+
+        assertEquals(mockPerson.getPersonId(), result.getPersonId());
+        assertEquals(mockPerson.getUsername(), result.getUsername());
+
+        verify(personRepository, times(1)).existsByUsername(createDto.getUsername());
+        verify(personRepository, times(1)).save(any(Person.class));
+    }
 
     // Test for patchProfile
+    @Test
+    @DisplayName(value = "Person TC_006: Test Patch")
+    void TC_006(){
+        Person updatedPerson = new Person(1L, "Tester Name", Role.USER, "username", "password");
 
-    // Test for changePassword
+        // Person Service Patch Profile Paramters
+        Long patchPersonProfileId = mockPerson.getPersonId();
+        PatchPersonProfileDto patchPersonProfileDto = new PatchPersonProfileDto("Full Name", "username2");
+        updatedPerson.setUsername(patchPersonProfileDto.getUsername());
+        updatedPerson.setFullName(patchPersonProfileDto.getFullName());
 
-    // Test for delete
+        when(personRepository.findById(patchPersonProfileId)).thenReturn(Optional.of(mockPerson));
+        when(personRepository.existsByUsernameAndPersonIdNot("username2", mockPerson.getPersonId())).thenReturn(false);
+        when(personRepository.save(any(Person.class))).thenReturn(updatedPerson);
 
+        PersonDto result = personService.patchProfile(mockPerson.getPersonId(), patchPersonProfileDto);
 
+        assertEquals(mockPerson.getPersonId(), result.getPersonId());
+        assertEquals("username2", result.getUsername());
+        assertEquals("Full Name", result.getFullName());
+
+        verify(personRepository, times(1)).findById(mockPerson.getPersonId());
+        verify(personRepository, times(1)).existsByUsernameAndPersonIdNot(anyString(), anyLong());
+        verify(personRepository, times(1)).save(any(Person.class));
+    }
 }
