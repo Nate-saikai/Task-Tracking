@@ -4,7 +4,6 @@ import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.dto.TaskDto;
 import com.example.tasktrackingsystem.model.Status;
-import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +16,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 /**
  * REST Controller for managing tasks.
