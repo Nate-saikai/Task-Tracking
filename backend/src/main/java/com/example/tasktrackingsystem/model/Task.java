@@ -29,6 +29,7 @@ public class Task {
     // "Tracking" status
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private Status trackingStatus = Status.TO_DO; // Default "TO_DO" status
 
     @ManyToOne(fetch = FetchType.LAZY)

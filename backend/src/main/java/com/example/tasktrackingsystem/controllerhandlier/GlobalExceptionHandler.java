@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -49,6 +50,40 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PersonNotFoundException.class)
     public ResponseEntity<ApiError> handlePersonNotFound(PersonNotFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", ex.getMessage(), req, null);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleArgsMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
+        String message = "";
+        if (ex.getMessage().contains("Status") || ex.getMessage().contains("Role")) {
+            if (ex.getValue() != null) {
+                message = ex.getValue().toString() + " not part of available options";
+            } else {
+                message = "Null values not allowed";
+            }
+            return build(HttpStatus.NOT_FOUND, "ENUM ARG MISMATCH", message, req, null);
+        }
+
+        // --------------------------------------------------------------------------------
+        // ------------------------- HANDLING FOR MISMATCH TYPES --------------------------
+        // --------------------------------------------------------------------------------
+
+        String paramName = ex.getName();
+        Class<?> required = ex.getRequiredType();
+        Object value = ex.getValue();
+        Class<?> argument = (value != null) ? value.getClass() : null;
+
+        message = String.format("Parameter '%s' should be of type %s, but value '%s' is of type %s",
+                    paramName,
+                    required != null ? required.getSimpleName() : "?",
+                    value != null ? value.toString() : "?",
+                    argument != null ? argument.getSimpleName() : "?"
+                );
+
+        return build(HttpStatus.BAD_REQUEST, String.format("MISMATCH: %s is not %s",
+                required != null ? required.getSimpleName() : "?",
+                argument != null ? argument.getSimpleName() : "?"
+                ), message, req, null);
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
