@@ -18,9 +18,9 @@ export interface Page<T> {
     sort?: any;
 }
 
-const AUTH_BASE = "/auth";
-const PERSON_BASE = "/persons";
-const TASK_BASE = "/tasks";
+const AUTH_BASE = "/api/auth";
+const PERSON_BASE = "/api/persons";
+const TASK_BASE = "/api/tasks";
 
 export const api = {
     auth: {
