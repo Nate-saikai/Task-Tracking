@@ -61,7 +61,7 @@ public class TaskController {
             @AuthenticationPrincipal PersonDto personDto,
             @PathVariable int pageNumber
     ) {
-        Long userId = Long.valueOf(personDto.getPersonId());
+        Long userId = personDto.getPersonId();
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         return ResponseEntity.ok(taskService.getTasksByUserId(userId, pageable));
     }
@@ -75,7 +75,7 @@ public class TaskController {
             @RequestParam Status status,
             @PathVariable int pageNumber
     ) {
-        Long userId = Long.valueOf(personDto.getPersonId());
+        Long userId = personDto.getPersonId();
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         return ResponseEntity.ok(taskService.getTasksByUserIdAndStatus(userId, status, pageable));
     }
@@ -102,7 +102,7 @@ public class TaskController {
             @Valid @RequestBody CreateTaskDto taskDto,
             @AuthenticationPrincipal PersonDto personDto
     ) {
-        Long userId = Long.valueOf(personDto.getPersonId());
+        Long userId = personDto.getPersonId();
         return new ResponseEntity<>(taskService.createTask(taskDto, userId), HttpStatus.CREATED);
     }
 
