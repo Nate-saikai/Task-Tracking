@@ -3,6 +3,8 @@ package com.example.tasktrackingsystem.service;
 import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.dto.TaskDto;
+import com.example.tasktrackingsystem.exceptions.InvalidInputException;
+import com.example.tasktrackingsystem.exceptions.TaskNotFoundException;
 import com.example.tasktrackingsystem.model.Task;
 import com.example.tasktrackingsystem.model.Status;
 import com.example.tasktrackingsystem.model.Person;
@@ -54,16 +56,24 @@ public class TaskService {
     }
 
     /**
-     * Updates an existing task's title, description, and tracking status.
+     * Updates an existing task's title, description, and status after verifying ownership.
      * @param id The ID of the task to update.
      * @param details The updated task details.
+     * @param userId The ID of the user requesting the update for ownership validation.
      * @return The updated task DTO.
+     * @throws TaskNotFoundException if no task exists with the given ID.
+     * @throws InvalidInputException if the user does not own the task.
      */
     @Transactional
-    public TaskDto updateTask(Long id, CreateTaskDto details) {
+    public TaskDto updateTask(Long id, CreateTaskDto details, Long userId) {
         // Check if Task exist
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Task not found with ID: " + id));
+                .orElseThrow(() -> new TaskNotFoundException("Task not found with ID: " + id));
+
+        // Ownership Check
+        if (!task.getPerson().getPersonId().equals(userId)) {
+            throw new InvalidInputException("You do not have permission to update this task.");
+        }
 
         task.setTitle(details.getTitle());
         task.setDescription(details.getDescription());
@@ -76,20 +86,29 @@ public class TaskService {
     }
 
     /**
-     * Deletes a task by ID.
-     * @param id The ID of the task to delete.
+     * Deletes a task by its ID.
+     * @param taskId The ID of the task to delete.
+     * @param userId The ID of the user requesting the deletion for ownership validation.
+     * @throws TaskNotFoundException if no task exists with the given ID.
+     * @throws InvalidInputException if the user does not own the task.
      */
     @Transactional
-    public void deleteTask(Long id) {
-        if (!taskRepository.existsById(id)) {
-            throw new EntityNotFoundException("Cannot delete. Task not found with ID: " + id);
+    public void deleteTask(Long taskId, Long userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new TaskNotFoundException("Task not found with ID: " + taskId));
+
+        // Ownership Check
+        if (!task.getPerson().getPersonId().equals(userId)) {
+            throw new InvalidInputException("You do not have permission to delete this task.");
         }
-        taskRepository.deleteById(id);
+
+        taskRepository.delete(task);
     }
 
     /**
-     * Retrieves all tasks in the system.
-     * @return A list of all tasks.
+     * Retrieves a paginated list of all tasks in the system.
+     * @param pageable The pagination information.
+     * @return A page of all TaskDtos.
      */
     public Page<TaskDto> getAllTasks(Pageable pageable) {
         return taskRepository.findAll(pageable).map(this::convertToDto);
@@ -99,37 +118,40 @@ public class TaskService {
      * Retrieves a task by its unique ID.
      * @param id The ID of the task.
      * @return The task if found.
-     * @throws EntityNotFoundException if the task does not exist.
+     * @throws TaskNotFoundException if the task does not exist.
      */
     public TaskDto getTaskById(Long id) {
         return taskRepository.findById(id)
                 .map(this::convertToDto)
-                .orElseThrow(() -> new EntityNotFoundException("Task not found with ID: " + id));
+                .orElseThrow(() -> new TaskNotFoundException("Task not found with ID: " + id));
     }
 
     /**
      * Retrieves all tasks for a specific user.
      * @param userId The ID of the owner.
-     * @return List of tasks.
+     * @param pageable The pagination information.
+     * @return A page of the user's TaskDtos
      */
     public Page<TaskDto> getTasksByUserId(Long userId, Pageable pageable) {
         return taskRepository.findByPersonPersonId(userId, pageable).map(this::convertToDto);
     }
 
     /**
-     * Retrieves tasks for a specific user filtered by status.
-     * @param userId The ID of the owner.
-     * @param status The status to filter by.
-     * @return List of matching TaskDto.
+     * Retrieves a paginated list of tasks for a specific user, filtered by status.
+     * @param userId   The ID of the task owner.
+     * @param status   The status to filter by.
+     * @param pageable The pagination information.
+     * @return A page of matching TaskDtos.
      */
     public Page<TaskDto> getTasksByUserIdAndStatus(Long userId, Status status, Pageable pageable) {
         return taskRepository.findByPersonPersonIdAndTrackingStatus(userId, status, pageable).map(this::convertToDto);
     }
 
     /**
-     * Retrieves tasks by status.
-     * @param status The Status enum to filter by.
-     * @return List of matching tasks.
+     * Retrieves a paginated list of tasks filtered by status across all users.
+     * @param status   The status to filter by.
+     * @param pageable The pagination information.
+     * @return A page of matching TaskDtos.
      */
     public Page<TaskDto> getTasksByStatus(Status status, Pageable pageable) {
         return taskRepository.findByTrackingStatus(status, pageable).map(this::convertToDto);

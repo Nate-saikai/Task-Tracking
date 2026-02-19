@@ -3,6 +3,8 @@ package com.example.tasktrackingsystem.service;
 import com.example.tasktrackingsystem.dto.CreateTaskDto;
 import com.example.tasktrackingsystem.dto.PersonDto;
 import com.example.tasktrackingsystem.dto.TaskDto;
+import com.example.tasktrackingsystem.exceptions.InvalidInputException;
+import com.example.tasktrackingsystem.exceptions.TaskNotFoundException;
 import com.example.tasktrackingsystem.model.Person;
 import com.example.tasktrackingsystem.model.Status;
 import com.example.tasktrackingsystem.model.Task;
@@ -52,6 +54,7 @@ public class TaskServiceTest {
         createTaskDto = new CreateTaskDto();
         createTaskDto.setTitle("Test Task");
         createTaskDto.setDescription("Test Description");
+        createTaskDto.setTrackingStatus(Status.IN_PROGRESS);
 
         Person person = new Person();
         person.setPersonId(1L);
@@ -104,7 +107,7 @@ public class TaskServiceTest {
         when(taskRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class, () -> {
+        TaskNotFoundException exception = assertThrows(TaskNotFoundException.class, () -> {
             taskService.getTaskById(99L);
         });
 
@@ -112,33 +115,56 @@ public class TaskServiceTest {
     }
 
     @Test
-    @DisplayName("Delete task by valid ID")
+    @DisplayName("Delete task - Success (Same User)")
     void deleteTask_ValidId_CallsDelete() {
         // Arrange
-        when(taskRepository.existsById(1L)).thenReturn(true);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(mockTask));
 
         // Act
-        taskService.deleteTask(1L);
+        taskService.deleteTask(1L, 1L);
 
         // Assert
-        verify(taskRepository, times(1)).deleteById(1L);
+        verify(taskRepository, times(1)).delete(mockTask);
     }
 
     @Test
-    @DisplayName("Update task details")
+    @DisplayName("Delete task - Fails (Wrong User)")
+    void deleteTask_WrongUser_ThrowsInvalidInputException() {
+        // Arrange
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(mockTask));
+
+        // Act & Assert
+        assertThrows(InvalidInputException.class, () -> {
+            taskService.deleteTask(1L, 2L);
+        });
+    }
+
+    @Test
+    @DisplayName("Update task details - Success (Same User)")
     void updateTask_ValidData_ReturnsUpdatedDto() {
         // Arrange
         when(taskRepository.findById(1L)).thenReturn(Optional.of(mockTask));
         when(taskRepository.save(any(Task.class))).thenReturn(mockTask);
 
-        createTaskDto.setTitle("Updated Title");
-
         // Act
-        TaskDto result = taskService.updateTask(1L, createTaskDto);
+        TaskDto result = taskService.updateTask(1L, createTaskDto, 1L);
 
         // Assert
         assertNotNull(result);
+        assertEquals(Status.IN_PROGRESS, mockTask.getTrackingStatus());
         verify(taskRepository).save(mockTask);
+    }
+
+    @Test
+    @DisplayName("Update task details - Fails (Wrong User)")
+    void updateTask_WrongUser_ThrowsInvalidInputException() {
+        // Arrange
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(mockTask));
+
+        // Act & Assert
+        assertThrows(InvalidInputException.class, () -> {
+            taskService.updateTask(1L, createTaskDto, 2L); // 2L does not own 1L
+        });
     }
 
     @Test

@@ -148,7 +148,7 @@ public class TaskControllerTest {
     @Test
     @DisplayName("TC_006: PUT /api/tasks/{id} - Valid update returns 200")
     void updateTask_ValidId_ReturnsOk() throws Exception {
-        when(taskService.updateTask(eq(1L), any(CreateTaskDto.class))).thenReturn(mockTaskDto);
+        when(taskService.updateTask(eq(1L), any(CreateTaskDto.class), any(Long.class))).thenReturn(mockTaskDto);
 
         mockMvc.perform(put("/api/tasks/1")
                         .with(csrf())
@@ -163,7 +163,7 @@ public class TaskControllerTest {
     @Test
     @DisplayName("TC_007: PUT /api/tasks/{id} - Invalid ID returns 404")
     void updateTask_InvalidId_ReturnsNotFound() throws Exception {
-        when(taskService.updateTask(eq(99L), any(CreateTaskDto.class)))
+        when(taskService.updateTask(eq(99L), any(CreateTaskDto.class), any(Long.class)))
                 .thenThrow(new EntityNotFoundException("Task not found"));
 
         mockMvc.perform(put("/api/tasks/99")
@@ -178,7 +178,7 @@ public class TaskControllerTest {
     @Test
     @DisplayName("TC_008: DELETE /api/tasks/{id} - Valid ID returns 204")
     void deleteTask_ValidId_ReturnsNoContent() throws Exception {
-        doNothing().when(taskService).deleteTask(1L);
+        doNothing().when(taskService).deleteTask(eq(1L), any(Long.class));
 
         mockMvc.perform(delete("/api/tasks/1")
                         .with(csrf())
@@ -190,7 +190,7 @@ public class TaskControllerTest {
     @Test
     @DisplayName("TC_009: DELETE /api/tasks/{id} - Invalid ID returns 404")
     void deleteTask_InvalidId_ReturnsNotFound() throws Exception {
-        doThrow(new EntityNotFoundException("Task not found")).when(taskService).deleteTask(99L);
+        doThrow(new EntityNotFoundException("Task not found")).when(taskService).deleteTask(eq(99L), any(Long.class));
 
         mockMvc.perform(delete("/api/tasks/99")
                         .with(csrf())

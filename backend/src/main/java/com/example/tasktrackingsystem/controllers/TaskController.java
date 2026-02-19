@@ -110,17 +110,23 @@ public class TaskController {
     @PutMapping("/{taskId}")
     public ResponseEntity<TaskDto> updateTask(
             @PathVariable Long taskId,
-            @Valid @RequestBody CreateTaskDto taskDetails
+            @Valid @RequestBody CreateTaskDto taskDetails,
+            @AuthenticationPrincipal PersonDto personDto // Added to get the current user
     ) {
-        return ResponseEntity.ok(taskService.updateTask(taskId, taskDetails));
+        Long userId = personDto.getPersonId();
+        return ResponseEntity.ok(taskService.updateTask(taskId, taskDetails, userId));
     }
 
     /**
      * Deletes a task by ID.
      */
     @DeleteMapping("/{taskId}")
-    public ResponseEntity<Void> deleteTaskById(@PathVariable Long taskId) {
-        taskService.deleteTask(taskId);
+    public ResponseEntity<Void> deleteTaskById(
+            @PathVariable Long taskId,
+            @AuthenticationPrincipal PersonDto personDto // Added to get the current user
+    ) {
+        Long userId = personDto.getPersonId();
+        taskService.deleteTask(taskId, userId);
         return ResponseEntity.noContent().build();
     }
 }
