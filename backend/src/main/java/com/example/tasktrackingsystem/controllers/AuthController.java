@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * The type Auth controller.
  */
-@Controller
+@RestController
 @RequestMapping("${api.path.auth}")
 public class AuthController {
     private final PersonService personService;
