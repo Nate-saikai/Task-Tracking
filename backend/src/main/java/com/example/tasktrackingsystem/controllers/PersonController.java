@@ -4,6 +4,7 @@ import com.example.tasktrackingsystem.dto.*;
 import com.example.tasktrackingsystem.service.PersonService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -64,7 +65,7 @@ public class PersonController {
      */
 // Get All Paginated
     @GetMapping("/paginated/{pageNumber}")
-    public ResponseEntity<List<PersonDto>> findAllPaginated(@PathVariable int pageNumber) {
+    public ResponseEntity<Page<PersonDto>> findAllPaginated(@PathVariable int pageNumber) {
         Pageable pageable = PageRequest.of(pageNumber, PAGE_SIZE);
         return new ResponseEntity<>(personService.findAllPaginated(pageable), HttpStatus.OK);
     }

@@ -84,7 +84,7 @@ public class JwtService {
         Claims claims = extractAllClaims(token);
 
         PersonDto person = new PersonDto();
-        person.setPersonId(claims.getSubject());
+        person.setPersonId(Long.valueOf(claims.getSubject()));
 
         person.setUsername(claims.get("username", String.class));
         person.setFullName(claims.get("fullName", String.class));

@@ -10,6 +10,7 @@ import com.example.tasktrackingsystem.model.Role;
 import com.example.tasktrackingsystem.repository.PersonRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -71,13 +72,8 @@ public class PersonService {
      * @return the list
      */
 // Get All Person Paginated
-    public List<PersonDto> findAllPaginated(Pageable pageable) {
-
-        List<PersonDto> list = personRepository.findAll(pageable).map(this::convertToDto).toList();
-
-        if (list.isEmpty()) throw new PersonNotFoundException("No users found");
-
-        return list;
+    public Page<PersonDto> findAllPaginated(Pageable pageable) {
+        return personRepository.findAll(pageable).map(this::convertToDto);
     }
 
     /**
@@ -207,7 +203,7 @@ public class PersonService {
 // Convert to DTO
     public PersonDto convertToDto(Person person) {
         return new PersonDto(
-                String.valueOf(person.getPersonId()),
+                person.getPersonId(),
                 person.getFullName(),
                 String.valueOf(person.getRole()),
                 person.getUsername()

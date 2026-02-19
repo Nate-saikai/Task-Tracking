@@ -16,7 +16,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class PersonDto {
     @NotNull(message = "ID must not be null.")
-    private String personId;
+    private Long personId;
 
     @Size(min = 8, max = 100, message = "Full name must be a minimum of 8 - 100 characters only.")
     @NotNull(message = "Full name must not be null.")
