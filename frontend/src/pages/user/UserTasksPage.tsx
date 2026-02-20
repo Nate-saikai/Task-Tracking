@@ -795,9 +795,12 @@ export default function UserTasksPage() {
         async (taskId: number, nextStatus: TaskStatus) => {
             const current = selected && selected.id === taskId ? selected : serverTasks.find((x) => x.id === taskId);
 
+            // Prevent updating if the task isn't found locally
+            if (!current) return;
+
             // need full payload for PUT (CreateTaskDto)
             const dto: CreateTaskDto = {
-                title: current?.title ?? "Untitled",
+                title: current.title,
                 description: current?.description ?? undefined,
                 trackingStatus: nextStatus,
             };

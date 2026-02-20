@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     function homeByRole(r: Role | undefined = role) {
-        return r === "ADMIN" ? "/admin" : "/app";
+        return r === "ADMIN" ? "/admin/tasks" : "/app/tasks";
     }
 
     async function login(body: LoginPersonDto) {
