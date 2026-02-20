@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { toast } from "sonner";
 
 export const http = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080",
@@ -22,18 +23,16 @@ function extractApiErrorMessage(err: AxiosError<any>): string {
     return err.message || "Unexpected server error.";
 }
 
-// Optional: attach global error handling hook
-export function setupHttpInterceptors(onErrorToast?: (msg: string) => void) {
-    http.interceptors.response.use(
-        (res) => res,
-        (err: AxiosError) => {
-            // Skip toast for /auth/me (like your Angular interceptor)
-            const url = err.config?.url ?? "";
-            if (!url.includes("/auth/me")) {
-                const msg = extractApiErrorMessage(err as AxiosError<any>);
-                onErrorToast?.(msg);
-            }
-            return Promise.reject(err);
+http.interceptors.response.use(
+    (res) => res,
+    (err: AxiosError) => {
+        // Skip toast for /auth/me (like your Angular interceptor)
+        const url = err.config?.url ?? "";
+        if (!url.includes("/auth/me")) {
+            const msg = extractApiErrorMessage(err as AxiosError<any>);
+            toast.error(msg);
         }
-    );
-}
+        return Promise.reject(err);
+    }
+);
+
