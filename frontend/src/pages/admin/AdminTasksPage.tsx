@@ -93,56 +93,73 @@ function TaskToolbar({
     );
 }
 
+// Updated to match UserTasksPage.tsx layout
 function TaskDetailsSheet({
     open,
     onOpenChange,
     task,
+    isLoading,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     task: TaskDto | null;
+    isLoading: boolean;
 }) {
-    if (!task) return null;
-    const s = statusMeta[task.trackingStatus as Status];
+    if (!open) return null;
+
+    const s = task ? statusMeta[task.trackingStatus as Status] : null;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-md">
-                <SheetHeader className="space-y-1">
-                    <SheetTitle className="leading-tight">{task.title}</SheetTitle>
-                    <SheetDescription className="flex items-center gap-2">
-                        <Badge variant={s.badge} className="gap-1">
-                            {s.icon}
-                            {s.label}
-                        </Badge>
-                    </SheetDescription>
-                </SheetHeader>
+            <SheetContent className="w-full sm:max-w-md p-6 sm:p-8 overflow-y-auto">
+                {isLoading || !task ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-8 w-[80%]" />
+                        <Skeleton className="h-5 w-[50%]" />
+                        <Separator className="my-6" />
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-12 w-full mt-6" />
+                    </div>
+                ) : (
+                    <>
+                        <SheetHeader className="space-y-3">
+                            <SheetTitle className="leading-tight text-2xl">{task.title}</SheetTitle>
+                            <SheetDescription className="flex items-center gap-3 text-sm">
+                                {s && (
+                                    <Badge variant={s.badge} className="gap-1.5 px-2.5 py-0.5 text-xs">
+                                        {s.icon}
+                                        {s.label}
+                                    </Badge>
+                                )}
+                                <span className="text-muted-foreground">Task #{task.id}</span>
+                            </SheetDescription>
+                        </SheetHeader>
 
-                <div className="mt-6 space-y-5 text-sm">
-                    <div className="bg-muted/30 rounded-lg p-4">
-                        {task.description ? (
-                            <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed">
-                                {task.description}
-                            </p>
-                        ) : (
-                            <p className="text-muted-foreground italic">No description provided.</p>
-                        )}
-                    </div>
-                    <Separator />
-                    <div className="grid gap-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <User2 className="h-4 w-4" />
-                                Owner ID
+                        <div className="mt-8 space-y-6">
+                            <div className="bg-muted/30 rounded-lg p-4">
+                                {task.description ? (
+                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">
+                                        {task.description}
+                                    </p>
+                                ) : (
+                                    <p className="text-muted-foreground text-sm italic">No description provided.</p>
+                                )}
                             </div>
-                            <div className="truncate font-mono">{task.userId}</div>
+
+                            <Separator />
+
+                            <div className="grid gap-3 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <User2 className="h-4 w-4" />
+                                        Owner ID
+                                    </div>
+                                    <div className="truncate font-mono">{task.userId}</div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="text-muted-foreground">Task ID</div>
-                            <div className="font-mono">#{task.id}</div>
-                        </div>
-                    </div>
-                </div>
+                    </>
+                )}
             </SheetContent>
         </Sheet>
     );
@@ -160,6 +177,7 @@ export default function AdminTasksPage() {
 
     const [selected, setSelected] = useState<TaskDto | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsLoading, setDetailsLoading] = useState(false); // Added matching state
 
     const loadTasks = useCallback(async () => {
         setIsLoading(true);
@@ -179,6 +197,24 @@ export default function AdminTasksPage() {
     useEffect(() => {
         loadTasks();
     }, [loadTasks]);
+
+    // Matching fresh fetch logic from UserTasksPage.tsx
+    const openDetails = useCallback(
+        async (t: TaskDto) => {
+            setSelected(t);
+            setDetailsOpen(true);
+            setDetailsLoading(true);
+            try {
+                const fresh = await api.tasks.getById(t.id);
+                setSelected(fresh);
+            } catch {
+                // Keep existing selection if fetch fails
+            } finally {
+                setDetailsLoading(false);
+            }
+        },
+        []
+    );
 
     const filtered = useMemo(() => {
         const list = pageData?.content || [];
@@ -231,7 +267,7 @@ export default function AdminTasksPage() {
                                             <TableRow
                                                 key={t.id}
                                                 className="cursor-pointer"
-                                                onClick={() => { setSelected(t); setDetailsOpen(true); }}
+                                                onClick={() => openDetails(t)} // Updated to call openDetails
                                             >
                                                 <TableCell className="font-medium">{t.title}</TableCell>
                                                 <TableCell className="font-mono text-xs">{t.userId}</TableCell>
@@ -277,7 +313,12 @@ export default function AdminTasksPage() {
                 </Card>
             </div>
 
-            <TaskDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} task={selected} />
+            <TaskDetailsSheet
+                open={detailsOpen}
+                onOpenChange={setDetailsOpen}
+                task={selected}
+                isLoading={detailsLoading} // Added isLoading prop
+            />
         </div>
     );
 }
