@@ -1,6 +1,23 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+
+// Shadcn UI Components
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 type Mode = "login" | "register";
 
@@ -10,172 +27,169 @@ export default function LoginPage() {
     const location = useLocation();
 
     const [mode, setMode] = useState<Mode>("login");
-    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isPageLoading, setIsPageLoading] = useState(true);
 
-    // Login fields
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-
-    // Register fields
     const [fullName, setFullName] = useState("");
 
-    // where user wanted to go before redirecting to /login
-    const from = useMemo(() => {
-        const state = location.state as any;
-        return state?.from?.pathname || auth.homeByRole();
-    }, [location.state, auth]);
+    useEffect(() => {
+        const timer = setTimeout(() => setIsPageLoading(false), 800);
+        return () => clearTimeout(timer);
+    }, []);
 
-    async function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        setError(null);
-
+    async function handleAuth(currentMode: Mode) {
+        setIsLoading(true);
         try {
-            if (mode === "login") {
-                // Capture the user object returned from login
+            if (currentMode === "login") {
                 const user = await auth.login({ username, password });
-
-                // If the user is an ADMIN, always send them to /admin/tasks.
-                // Only use the 'from' path for regular users.
                 const state = location.state as any;
-                const dest = user.role === "ADMIN"
-                    ? "/admin/tasks"
-                    : (state?.from?.pathname || "/app/tasks");
+                const dest = user.role === "ADMIN" ? "/admin/tasks" : (state?.from?.pathname || "/app/tasks");
 
-                console.log("Redirecting to:", dest); // Debugging line
+                toast.success("Welcome back!");
                 nav(dest, { replace: true });
-                return;
+            } else {
+                await auth.register({ fullName, username, password });
+                toast.success("Account created! Please log in.");
+                setMode("login");
             }
-
-            // register
-            await auth.register({
-                fullName,
-                username,
-                password,
-                // role not required — backend sets USER in AuthController.register
-            });
-
-            nav(auth.homeByRole(), { replace: true });
         } catch (err: any) {
-            // If you already have Axios interceptor + toasts, you can remove this.
-            setError(err?.message ?? "Request failed");
+            toast.error(err?.message ?? "Authentication failed");
+        } finally {
+            setIsLoading(false);
         }
     }
 
-    return (
-        <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-            <h1 style={{ marginBottom: 6 }}>Task Tracking System</h1>
-            <p style={{ marginTop: 0, color: "#6b7280" }}>
-                {mode === "login" ? "Sign in to continue." : "Create your account."}
-            </p>
-
-            {/* Toggle */}
-            <div style={{ display: "flex", gap: 8, margin: "16px 0" }}>
-                <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    style={{
-                        flex: 1,
-                        padding: 10,
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: mode === "login" ? "#111827" : "white",
-                        color: mode === "login" ? "white" : "#111827",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                    }}
-                >
-                    Login
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => setMode("register")}
-                    style={{
-                        flex: 1,
-                        padding: 10,
-                        borderRadius: 10,
-                        border: "1px solid #e5e7eb",
-                        background: mode === "register" ? "#111827" : "white",
-                        color: mode === "register" ? "white" : "#111827",
-                        cursor: "pointer",
-                        fontWeight: 600,
-                    }}
-                >
-                    Register
-                </button>
+    if (isPageLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen p-4">
+                <Card className="w-full max-w-[420px]">
+                    <CardHeader className="space-y-2 text-center">
+                        <Skeleton className="h-8 w-3/4 mx-auto" />
+                        <Skeleton className="h-4 w-1/2 mx-auto" />
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-40 w-full" />
+                    </CardContent>
+                </Card>
             </div>
+        );
+    }
 
-            {error && (
-                <div
-                    style={{
-                        background: "#fee2e2",
-                        color: "#991b1b",
-                        padding: 10,
-                        borderRadius: 10,
-                        marginBottom: 12,
-                        border: "1px solid #fecaca",
-                    }}
-                >
-                    {error}
-                </div>
-            )}
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
+            <Card className="w-full max-w-[420px] shadow-lg">
+                <CardHeader className="text-center">
+                    <CardTitle className="text-2xl font-bold tracking-tight">
+                        Task Tracking System
+                    </CardTitle>
+                    <CardDescription>
+                        Access your workspace to manage your tasks
+                    </CardDescription>
+                </CardHeader>
 
-            <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
-                {mode === "register" && (
-                    <label style={{ display: "grid", gap: 6 }}>
-                        Full Name
-                        <input
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            placeholder="e.g. Juan Dela Cruz"
-                            minLength={8}
-                            required
-                            style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                        />
-                    </label>
-                )}
+                <CardContent>
+                    <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2 mb-6">
+                            <TabsTrigger value="login">Login</TabsTrigger>
+                            <TabsTrigger value="register">Register</TabsTrigger>
+                        </TabsList>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                    Username
-                    <input
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="min 8 characters"
-                        minLength={8}
-                        required
-                        style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    />
-                </label>
+                        {/* --- LOGIN CONTENT --- */}
+                        <TabsContent value="login" className="space-y-4">
+                            <form
+                                onSubmit={(e) => { e.preventDefault(); handleAuth("login"); }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="login-user">Username</Label>
+                                    <Input
+                                        id="login-user"
+                                        placeholder="Enter your username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="login-pass">Password</Label>
+                                    <Input
+                                        id="login-pass"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <Button type="submit" className="w-full" disabled={isLoading}>
+                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Sign In
+                                </Button>
+                            </form>
+                        </TabsContent>
 
-                <label style={{ display: "grid", gap: 6 }}>
-                    Password
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="min 8 characters"
-                        minLength={8}
-                        required
-                        style={{ padding: 10, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                    />
-                </label>
+                        {/* --- REGISTER CONTENT --- */}
+                        <TabsContent value="register" className="space-y-4">
+                            <form
+                                onSubmit={(e) => { e.preventDefault(); handleAuth("register"); }}
+                                className="space-y-4"
+                            >
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-name">Full Name</Label>
+                                    <Input
+                                        id="reg-name"
+                                        placeholder="Juan Dela Cruz"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-user">Username</Label>
+                                    <Input
+                                        id="reg-user"
+                                        placeholder="min 8 characters"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        minLength={8}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="reg-pass">Password</Label>
+                                    <Input
+                                        id="reg-pass"
+                                        type="password"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        minLength={8}
+                                        required
+                                        disabled={isLoading}
+                                    />
+                                </div>
+                                <Button type="submit" className="w-full" variant="secondary" disabled={isLoading}>
+                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Create Account
+                                </Button>
+                            </form>
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
 
-                <button
-                    type="submit"
-                    style={{
-                        marginTop: 6,
-                        padding: 12,
-                        borderRadius: 10,
-                        border: 0,
-                        background: "#2563eb",
-                        color: "white",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                    }}
-                >
-                    {mode === "login" ? "Login" : "Create Account"}
-                </button>
-            </form>
+                <CardFooter className="flex justify-center border-t pt-4">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+                        Secure Access • Capstone 4
+                    </p>
+                </CardFooter>
+            </Card>
         </div>
     );
 }
