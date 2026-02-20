@@ -22,17 +22,41 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
+
 // icons
-import { CheckCircle2, Circle, Clock3, Pencil, Plus, Search, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
+import {
+    CheckCircle2,
+    Circle,
+    Clock3,
+    Pencil,
+    Plus,
+    Search,
+    Trash2,
+    ArrowLeft,
+    ArrowRight,
+    Loader2,
+    RotateCcw,
+} from "lucide-react";
 
 type TaskStatus = Status;
 type ViewMode = "MY" | "ALL";
 type SortKey = "recent" | "title";
 
-const statusMeta: Record<
-    TaskStatus,
-    { label: string; icon: React.ReactNode; badge: "secondary" | "secondary" | "destructive" | "outline" }
-> = {
+type BadgeVariant = React.ComponentProps<typeof Badge>["variant"];
+
+const statusMeta: Record<TaskStatus, { label: string; icon: React.ReactNode; badge: BadgeVariant }> = {
     TO_DO: { label: "To do", icon: <Circle className="h-4 w-4" />, badge: "outline" },
     IN_PROGRESS: { label: "In progress", icon: <Clock3 className="h-4 w-4" />, badge: "secondary" },
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
@@ -63,6 +87,17 @@ function getPrevStatus(status: TaskStatus): TaskStatus | null {
     if (status === "COMPLETED") return "IN_PROGRESS";
     if (status === "IN_PROGRESS") return "TO_DO";
     return null;
+}
+
+function FetchingBar({ show }: { show: boolean }) {
+    if (!show) return null;
+    return (
+        <div className="mb-4">
+            <div className="h-1 w-full overflow-hidden rounded bg-muted">
+                <div className="h-full w-full bg-primary/40 animate-pulse" />
+            </div>
+        </div>
+    );
 }
 
 function TaskSkeleton() {
@@ -105,6 +140,7 @@ function TaskToolbar({
     setViewMode,
     canViewAll,
     rightSlot,
+    showStatusTabs = true,
 }: {
     query: string;
     setQuery: (v: string) => void;
@@ -116,6 +152,7 @@ function TaskToolbar({
     setViewMode: (v: ViewMode) => void;
     canViewAll: boolean;
     rightSlot?: React.ReactNode;
+    showStatusTabs?: boolean;
 }) {
     return (
         <div className="flex flex-col gap-5">
@@ -153,16 +190,26 @@ function TaskToolbar({
             </div>
 
             <div className="flex items-center justify-between gap-4">
-                <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-full">
-                    <TabsList className="w-full justify-start h-11 px-1">
-                        <TabsTrigger value="ALL" className="min-w-[72px] h-9">
-                            All
-                        </TabsTrigger>
-                        <TabsTrigger value="TO_DO" className="h-9 px-4">To do</TabsTrigger>
-                        <TabsTrigger value="IN_PROGRESS" className="h-9 px-4">In progress</TabsTrigger>
-                        <TabsTrigger value="COMPLETED" className="h-9 px-4">Completed</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                {showStatusTabs ? (
+                    <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-fit">
+                        <TabsList className="w-fit justify-start h-11 px-1">
+                            <TabsTrigger value="ALL" className="min-w-[72px] h-9">
+                                All
+                            </TabsTrigger>
+                            <TabsTrigger value="TO_DO" className="h-9 px-4">
+                                To do
+                            </TabsTrigger>
+                            <TabsTrigger value="IN_PROGRESS" className="h-9 px-4">
+                                In progress
+                            </TabsTrigger>
+                            <TabsTrigger value="COMPLETED" className="h-9 px-4">
+                                Completed
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                ) : (
+                    <div />
+                )}
 
                 <div className="flex flex-wrap items-center gap-2 md:hidden">
                     {canViewAll && (
@@ -232,11 +279,15 @@ function TaskFormSheet({
                     </SheetDescription>
                 </SheetHeader>
 
-                <div className="mt-8 space-y-6">
+                <Separator className="my-1" />
+
+                <div className="space-y-6">
                     {localError && <ErrorState message={localError} />}
 
                     <div className="space-y-3">
-                        <Label htmlFor="task-title" className="text-sm font-medium">Title</Label>
+                        <Label htmlFor="task-title" className="text-sm font-medium">
+                            Title
+                        </Label>
                         <Input
                             id="task-title"
                             value={title}
@@ -248,7 +299,9 @@ function TaskFormSheet({
                     </div>
 
                     <div className="space-y-3">
-                        <Label htmlFor="task-desc" className="text-sm font-medium">Description</Label>
+                        <Label htmlFor="task-desc" className="text-sm font-medium">
+                            Description
+                        </Label>
                         <Textarea
                             id="task-desc"
                             value={description}
@@ -278,13 +331,12 @@ function TaskFormSheet({
                     <Separator className="my-6" />
 
                     <div className="flex items-center justify-end gap-3">
-                        <Button
-                            variant="outline"
-                            className="h-9 px-4" onClick={() => onOpenChange(false)} disabled={isSaving}>
+                        <Button variant="outline" className="h-9 px-4" onClick={() => onOpenChange(false)} disabled={isSaving}>
                             Cancel
                         </Button>
+
                         <Button
-                            variant="outline"
+                            variant="default"
                             className="h-9 px-4"
                             onClick={async () => {
                                 setLocalError(null);
@@ -301,7 +353,8 @@ function TaskFormSheet({
                             }}
                             disabled={isSaving}
                         >
-                            {isSaving ? "Saving…" : mode === "create" ? "Create Task" : "Save Changes"}
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {mode === "create" ? "Create Task" : "Save Changes"}
                         </Button>
                     </div>
                 </div>
@@ -318,6 +371,7 @@ function TaskDetailsSheet({
     onEdit,
     onDelete,
     isLoading,
+    isUpdatingStatus,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
@@ -326,10 +380,13 @@ function TaskDetailsSheet({
     onEdit?: (t: TaskDto) => void;
     onDelete?: (t: TaskDto) => void;
     isLoading?: boolean;
+    isUpdatingStatus?: boolean;
 }) {
     if (!open) return null;
 
     const s = task ? statusMeta[task.trackingStatus as TaskStatus] : null;
+    const prev = task ? getPrevStatus(task.trackingStatus as TaskStatus) : null;
+    const next = task ? getNextStatus(task.trackingStatus as TaskStatus) : null;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -360,9 +417,7 @@ function TaskDetailsSheet({
                         <div className="mt-8 space-y-6">
                             <div className="bg-muted/30 rounded-lg p-4">
                                 {task.description ? (
-                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">
-                                        {task.description}
-                                    </p>
+                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">{task.description}</p>
                                 ) : (
                                     <p className="text-muted-foreground text-sm italic">No description provided.</p>
                                 )}
@@ -374,28 +429,49 @@ function TaskDetailsSheet({
                                 <div className="space-y-3">
                                     <Label className="text-sm font-medium">Move Status</Label>
                                     <div className="flex gap-2 w-full">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1 h-11"
-                                            disabled={task.trackingStatus === "TO_DO"}
-                                            onClick={() => {
-                                                const prev = getPrevStatus(task.trackingStatus as TaskStatus);
-                                                if (prev) onUpdateStatus(task.id, prev);
-                                            }}
-                                        >
-                                            <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1 h-11"
-                                            disabled={task.trackingStatus === "COMPLETED"}
-                                            onClick={() => {
-                                                const next = getNextStatus(task.trackingStatus as TaskStatus);
-                                                if (next) onUpdateStatus(task.id, next);
-                                            }}
-                                        >
-                                            Next <ArrowRight className="w-4 h-4 ml-2" />
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className="flex-1 h-11"
+                                                    disabled={task.trackingStatus === "TO_DO" || !!isUpdatingStatus}
+                                                    onClick={() => {
+                                                        if (!prev) return;
+                                                        onUpdateStatus(task.id, prev);
+                                                    }}
+                                                >
+                                                    {isUpdatingStatus ? (
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                    ) : (
+                                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                                    )}
+                                                    Back
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>{prev ? `Move to ${statusMeta[prev].label}` : "Already at first status"}</TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className="flex-1 h-11"
+                                                    disabled={task.trackingStatus === "COMPLETED" || !!isUpdatingStatus}
+                                                    onClick={() => {
+                                                        if (!next) return;
+                                                        onUpdateStatus(task.id, next);
+                                                    }}
+                                                >
+                                                    Next
+                                                    {isUpdatingStatus ? (
+                                                        <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                                                    ) : (
+                                                        <ArrowRight className="w-4 h-4 ml-2" />
+                                                    )}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>{next ? `Move to ${statusMeta[next].label}` : "Already completed"}</TooltipContent>
+                                        </Tooltip>
                                     </div>
                                 </div>
                             )}
@@ -405,19 +481,13 @@ function TaskDetailsSheet({
                                     <Separator className="my-2" />
                                     <div className="flex items-center justify-end gap-3">
                                         {onDelete && (
-                                            <Button
-                                                variant="destructive"
-                                                className="gap-2 h-10"
-                                                onClick={() => onDelete(task)}
-                                            >
+                                            <Button variant="destructive" className="gap-2 h-10" onClick={() => onDelete(task)}>
                                                 <Trash2 className="h-4 w-4" />
                                                 Delete
                                             </Button>
                                         )}
                                         {onEdit && (
-                                            <Button
-                                                variant="outline"
-                                                className="h-9 px-4" onClick={() => onEdit(task)}>
+                                            <Button variant="outline" className="h-9 px-4 gap-2" onClick={() => onEdit(task)}>
                                                 <Pencil className="h-4 w-4" />
                                                 Edit
                                             </Button>
@@ -439,12 +509,14 @@ function TaskList({
     onEdit,
     onDelete,
     onUpdateStatus,
+    updatingStatusId,
 }: {
     tasks: TaskDto[];
     onOpenTask: (t: TaskDto) => void;
     onEdit: (t: TaskDto) => void;
     onDelete: (t: TaskDto) => void;
     onUpdateStatus: (taskId: number, status: TaskStatus) => void;
+    updatingStatusId: number | null;
 }) {
     return (
         <div className="space-y-4">
@@ -452,15 +524,20 @@ function TaskList({
             <div className="grid gap-4 md:hidden">
                 {tasks.map((t) => {
                     const s = statusMeta[t.trackingStatus as TaskStatus];
+                    const isUpdating = updatingStatusId === t.id;
+
+                    const prev = getPrevStatus(t.trackingStatus as TaskStatus);
+                    const next = getNextStatus(t.trackingStatus as TaskStatus);
+
                     return (
                         <div
                             key={t.id}
-                            className="w-full rounded-2xl border bg-card p-5 text-left shadow-sm transition-all hover:shadow-md"
+                            className={cn(
+                                "w-full rounded-2xl border bg-card p-5 text-left shadow-sm transition-all hover:shadow-md",
+                                isUpdating && "opacity-70"
+                            )}
                         >
-                            <button
-                                onClick={() => onOpenTask(t)}
-                                className="w-full text-left focus:outline-none mb-4"
-                            >
+                            <button onClick={() => onOpenTask(t)} className="w-full text-left focus:outline-none mb-4">
                                 <div className="min-w-0">
                                     <div className="truncate font-semibold text-lg">{t.title}</div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -480,42 +557,68 @@ function TaskList({
 
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-1">
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full"
-                                        disabled={t.trackingStatus === "TO_DO"}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const prev = getPrevStatus(t.trackingStatus as TaskStatus);
-                                            if (prev) onUpdateStatus(t.id, prev);
-                                        }}
-                                    >
-                                        <ArrowLeft className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full"
-                                        disabled={t.trackingStatus === "COMPLETED"}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            const next = getNextStatus(t.trackingStatus as TaskStatus);
-                                            if (next) onUpdateStatus(t.id, next);
-                                        }}
-                                    >
-                                        <ArrowRight className="h-4 w-4" />
-                                    </Button>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full"
+                                                disabled={t.trackingStatus === "TO_DO" || isUpdating}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!prev) return;
+                                                    onUpdateStatus(t.id, prev);
+                                                }}
+                                                aria-label="Move status back"
+                                            >
+                                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{prev ? `Move to ${statusMeta[prev].label}` : "Already at first status"}</TooltipContent>
+                                    </Tooltip>
+
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full"
+                                                disabled={t.trackingStatus === "COMPLETED" || isUpdating}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!next) return;
+                                                    onUpdateStatus(t.id, next);
+                                                }}
+                                                aria-label="Move status next"
+                                            >
+                                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{next ? `Move to ${statusMeta[next].label}` : "Already completed"}</TooltipContent>
+                                    </Tooltip>
                                 </div>
 
                                 <div className="flex gap-2">
-                                    <Button variant="secondary" size="sm" className="gap-2 h-8" onClick={() => onEdit(t)}>
+                                    <Button variant="secondary" size="sm" className="gap-2 h-8" onClick={() => onEdit(t)} disabled={isUpdating}>
                                         <Pencil className="h-3.5 w-3.5" />
                                         Edit
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(t)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
+
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                onClick={() => onDelete(t)}
+                                                disabled={isUpdating}
+                                                aria-label="Delete task"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Delete</TooltipContent>
+                                    </Tooltip>
                                 </div>
                             </div>
                         </div>
@@ -538,8 +641,17 @@ function TaskList({
                     <TableBody>
                         {tasks.map((t) => {
                             const s = statusMeta[t.trackingStatus as TaskStatus];
+                            const isUpdating = updatingStatusId === t.id;
+
+                            const prev = getPrevStatus(t.trackingStatus as TaskStatus);
+                            const next = getNextStatus(t.trackingStatus as TaskStatus);
+
                             return (
-                                <TableRow key={t.id} className="cursor-pointer transition-colors hover:bg-accent/40 group" onClick={() => onOpenTask(t)}>
+                                <TableRow
+                                    key={t.id}
+                                    className={cn("cursor-pointer transition-colors hover:bg-accent/40 group", isUpdating && "opacity-70")}
+                                    onClick={() => onOpenTask(t)}
+                                >
                                     <TableCell className="py-4">
                                         <div className="space-y-1.5">
                                             <div className="font-semibold text-base leading-tight">{t.title}</div>
@@ -561,39 +673,71 @@ function TaskList({
                                     <TableCell className="py-4" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                                             <div className="flex items-center gap-1 mr-2 border-r pr-3">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    disabled={t.trackingStatus === "TO_DO"}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const prev = getPrevStatus(t.trackingStatus as TaskStatus);
-                                                        if (prev) onUpdateStatus(t.id, prev);
-                                                    }}
-                                                >
-                                                    <ArrowLeft className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                    disabled={t.trackingStatus === "COMPLETED"}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        const next = getNextStatus(t.trackingStatus as TaskStatus);
-                                                        if (next) onUpdateStatus(t.id, next);
-                                                    }}
-                                                >
-                                                    <ArrowRight className="h-4 w-4" />
-                                                </Button>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            disabled={t.trackingStatus === "TO_DO" || isUpdating}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!prev) return;
+                                                                onUpdateStatus(t.id, prev);
+                                                            }}
+                                                            aria-label="Move status back"
+                                                        >
+                                                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>{prev ? `Move to ${statusMeta[prev].label}` : "Already at first status"}</TooltipContent>
+                                                </Tooltip>
+
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            disabled={t.trackingStatus === "COMPLETED" || isUpdating}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (!next) return;
+                                                                onUpdateStatus(t.id, next);
+                                                            }}
+                                                            aria-label="Move status next"
+                                                        >
+                                                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>{next ? `Move to ${statusMeta[next].label}` : "Already completed"}</TooltipContent>
+                                                </Tooltip>
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(t)} aria-label="Edit">
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => onDelete(t)} aria-label="Delete">
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(t)} aria-label="Edit" disabled={isUpdating}>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Edit</TooltipContent>
+                                            </Tooltip>
+
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                        onClick={() => onDelete(t)}
+                                                        aria-label="Delete"
+                                                        disabled={isUpdating}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Delete</TooltipContent>
+                                            </Tooltip>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -603,6 +747,54 @@ function TaskList({
                 </Table>
             </div>
         </div>
+    );
+}
+
+function ConfirmDeleteDialog({
+    open,
+    onOpenChange,
+    task,
+    onConfirm,
+    isDeleting,
+}: {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    task: TaskDto | null;
+    onConfirm: () => Promise<void>;
+    isDeleting: boolean;
+}) {
+    return (
+        <AlertDialog open={open} onOpenChange={onOpenChange}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete task?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {task ? (
+                            <>
+                                This will permanently delete <span className="font-medium text-foreground">“{task.title}”</span>. This cannot be undone.
+                            </>
+                        ) : (
+                            "This action cannot be undone."
+                        )}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={(e) => {
+                            e.preventDefault();
+                            void onConfirm();
+                        }}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        disabled={isDeleting}
+                    >
+                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }
 
@@ -618,7 +810,12 @@ export default function UserTasksPage() {
 
     const [pageNumber, setPageNumber] = useState(0);
     const [pageData, setPageData] = useState<Page<TaskDto> | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+
+    const hasLoadedOnceRef = React.useRef(false);
+
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [isFetching, setIsFetching] = useState(false);
+
     const [error, setError] = useState<string | null>(null);
 
     const [selected, setSelected] = useState<TaskDto | null>(null);
@@ -629,6 +826,13 @@ export default function UserTasksPage() {
     const [formMode, setFormMode] = useState<"create" | "edit">("create");
     const [formInitial, setFormInitial] = useState<TaskDto | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+
+    // delete confirmation dialog state
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<TaskDto | null>(null);
+
+    // per-task status update loading
+    const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
 
     // Load current user (for admin-only "ALL" endpoints)
     React.useEffect(() => {
@@ -681,6 +885,32 @@ export default function UserTasksPage() {
         },
         []
     );
+    const loadPage = useCallback(async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode) => {
+        setError(null);
+
+        if (hasLoadedOnceRef.current) setIsFetching(true);
+        else setIsInitialLoading(true);
+
+        try {
+            const data: Page<TaskDto> =
+                nextViewMode === "ALL"
+                    ? nextStatus === "ALL"
+                        ? await api.tasks.getAllPaginated(nextPageNumber)
+                        : await api.tasks.getByStatusPaginated(nextStatus, nextPageNumber)
+                    : nextStatus === "ALL"
+                        ? await api.tasks.getMyTasksPaginated(nextPageNumber)
+                        : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus);
+
+            setPageData(data);
+            hasLoadedOnceRef.current = true;
+        } catch (e: any) {
+            // IMPORTANT: don't setPageData(null) here -> keep old data to prevent flicker
+            setError(e?.message ?? "Failed to load tasks.");
+        } finally {
+            setIsInitialLoading(false);
+            setIsFetching(false);
+        }
+    }, []);
 
     // Reload on view/status/page changes
     React.useEffect(() => {
@@ -733,40 +963,47 @@ export default function UserTasksPage() {
 
     //     return sortTasks(list, sortKey);
     // }, [serverTasks, query, sortKey]);
+    const deferredQuery = React.useDeferredValue(query);
+
+    const filtered = useMemo(() => {
+        const q = deferredQuery.trim().toLowerCase();
+        let list = serverTasks;
+        if (q) list = list.filter((t) => (`${t.title} ${t.description ?? ""}`).toLowerCase().includes(q));
+        return sortTasks(list, sortKey);
+    }, [serverTasks, deferredQuery, sortKey]);
 
     const refresh = useCallback(async () => {
         await loadPage(pageNumber, status, viewMode);
     }, [loadPage, pageNumber, status, viewMode]);
 
-    const openDetails = useCallback(
-        async (t: TaskDto) => {
-            setSelected(t);
-            setDetailsOpen(true);
+    const openDetails = useCallback(async (t: TaskDto) => {
+        setSelected(t);
+        setDetailsOpen(true);
 
-            // include controller functionality: getById
-            setDetailsLoading(true);
-            try {
-                const fresh = await api.tasks.getById(t.id);
-                setSelected(fresh);
-            } catch {
-                // keep existing selection if fetch fails
-            } finally {
-                setDetailsLoading(false);
-            }
-        },
-        []
-    );
+        setDetailsLoading(true);
+        try {
+            const fresh = await api.tasks.getById(t.id);
+            setSelected(fresh);
+        } catch {
+            // keep existing selection if fetch fails
+        } finally {
+            setDetailsLoading(false);
+        }
+    }, []);
 
     const handleCreate = useCallback(
         async (dto: CreateTaskDto) => {
             setIsSaving(true);
             try {
                 await api.tasks.create(dto);
+                toast.success("Task created");
                 setFormOpen(false);
                 setFormInitial(null);
                 setFormMode("create");
-                // reload (page might change if it was empty)
                 await refresh();
+            } catch (e: any) {
+                toast.error(e?.message ?? "Failed to create task");
+                throw e;
             } finally {
                 setIsSaving(false);
             }
@@ -779,12 +1016,12 @@ export default function UserTasksPage() {
             setIsSaving(true);
             try {
                 await api.tasks.update(taskId, dto);
+                toast.success("Task updated");
                 setFormOpen(false);
                 setFormInitial(null);
                 setFormMode("create");
                 await refresh();
 
-                // update selected if it's the same task
                 if (selected?.id === taskId) {
                     try {
                         const fresh = await api.tasks.getById(taskId);
@@ -793,6 +1030,9 @@ export default function UserTasksPage() {
                         // ignore
                     }
                 }
+            } catch (e: any) {
+                toast.error(e?.message ?? "Failed to update task");
+                throw e;
             } finally {
                 setIsSaving(false);
             }
@@ -800,144 +1040,150 @@ export default function UserTasksPage() {
         [refresh, selected]
     );
 
-    const handleDelete = useCallback(
-        async (t: TaskDto) => {
-            const ok = window.confirm(`Delete "${t.title}"? This cannot be undone.`);
-            if (!ok) return;
+    // open confirm dialog instead of window.confirm
+    const requestDelete = useCallback((t: TaskDto) => {
+        setDeleteTarget(t);
+        setDeleteOpen(true);
+    }, []);
 
-            setIsSaving(true);
-            try {
-                await api.tasks.delete(t.id);
+    const confirmDelete = useCallback(async () => {
+        if (!deleteTarget) return;
 
-                if (selected?.id === t.id) {
-                    setDetailsOpen(false);
-                    setSelected(null);
-                }
+        setIsSaving(true);
+        try {
+            await api.tasks.delete(deleteTarget.id);
+            toast.success("Task deleted");
 
-                // reload and handle "deleted last item on page"
-                await loadPage(pageNumber, status, viewMode);
-
-                const after = pageData?.content?.length ?? 0;
-                if (after <= 1 && pageNumber > 0) {
-                    setPageNumber((p) => Math.max(0, p - 1));
-                }
-            } finally {
-                setIsSaving(false);
+            if (selected?.id === deleteTarget.id) {
+                setDetailsOpen(false);
+                setSelected(null);
             }
-        },
-        [loadPage, pageNumber, pageData?.content?.length, selected?.id, status, viewMode]
-    );
+
+            await loadPage(pageNumber, status, viewMode);
+
+            const before = pageData?.content?.length ?? 0;
+            if (before <= 1 && pageNumber > 0) {
+                setPageNumber((p) => Math.max(0, p - 1));
+            }
+
+            setDeleteOpen(false);
+            setDeleteTarget(null);
+        } catch (e: any) {
+            toast.error(e?.message ?? "Failed to delete task");
+        } finally {
+            setIsSaving(false);
+        }
+    }, [deleteTarget, loadPage, pageNumber, pageData?.content?.length, selected?.id, status, viewMode]);
 
     const updateStatus = useCallback(
         async (taskId: number, nextStatus: TaskStatus) => {
             const current = selected && selected.id === taskId ? selected : serverTasks.find((x) => x.id === taskId);
-
-            // Prevent updating if the task isn't found locally
             if (!current) return;
 
-            // need full payload for PUT (CreateTaskDto)
             const dto: CreateTaskDto = {
                 title: current.title,
                 description: current?.description ?? undefined,
                 trackingStatus: nextStatus,
             };
 
-            await api.tasks.update(taskId, dto);
-
-            // refresh list + selected
-            await refresh();
+            setUpdatingStatusId(taskId);
             try {
-                const fresh = await api.tasks.getById(taskId);
-                setSelected(fresh);
-            } catch {
-                // ignore
+                await api.tasks.update(taskId, dto);
+                toast.success(`Moved to ${statusMeta[nextStatus].label}`);
+
+                await refresh();
+                try {
+                    const fresh = await api.tasks.getById(taskId);
+                    setSelected(fresh);
+                } catch {
+                    // ignore
+                }
+            } catch (e: any) {
+                toast.error(e?.message ?? "Failed to update status");
+            } finally {
+                setUpdatingStatusId(null);
             }
         },
         [refresh, selected, serverTasks]
     );
 
+    const handleResetFilters = useCallback(() => {
+        setQuery("");
+        setStatus("ALL");
+        setSortKey("recent");
+        setPageNumber(0);
+        toast.message("Filters reset");
+    }, []);
+
     return (
-        <div className="mx-auto w-full max-w-6xl px-4 py-10 md:py-14">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <TooltipProvider delayDuration={200}>
+            <div className="mx-auto w-full max-w-6xl px-4 py-2">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">{viewMode === "ALL" ? "All Tasks" : "My Tasks"}</h1>
-                    <p className="text-muted-foreground text-sm mt-1">Manage and track the progress of your projects.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">{viewMode === "ALL" ? "All Tasks" : "My Tasks"}</h1>
+                    <p className="text-muted-foreground">Manage and track the progress of your projects.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <Button
-                        variant="secondary"
-                        className="h-10 px-4"
-                        onClick={() => {
-                            setQuery("");
-                            setStatus("ALL");
-                            setSortKey("recent");
-                            setPageNumber(0);
-                        }}
-                    >
-                        Reset Filters
-                    </Button>
+                <Separator className="my-6" />
 
-                    <Button
-                        variant="secondary"
-                        className="h-10 px-4"
-                        onClick={() => {
-                            setFormMode("create");
-                            setFormInitial(null);
-                            setFormOpen(true);
-                        }}
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        New Task
-                    </Button>
-                </div>
-            </div>
+                <div className="space-y-6">
+                    <Card className="rounded-2xl border-border/60 bg-card/50 shadow-sm overflow-hidden">
+                        {/* Card header with context + tabs */}
+                        <div className="border-b border-border/60 bg-muted/10">
+                            <div className="p-4 sm:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-0.5">
+                                    <div className="text-sm font-semibold">Tasks</div>
+                                    <div className="text-xs text-muted-foreground">Filter by status</div>
+                                </div>
 
-            <Separator className="my-8" />
+                                <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-full sm:w-fit">
+                                    <TabsList className="w-full sm:w-fit justify-start h-11 px-1 overflow-x-auto whitespace-nowrap">
+                                        <TabsTrigger value="ALL" className="min-w-[72px] h-9">
+                                            All
+                                        </TabsTrigger>
+                                        <TabsTrigger value="TO_DO" className="h-9 px-4">
+                                            To do
+                                        </TabsTrigger>
+                                        <TabsTrigger value="IN_PROGRESS" className="h-9 px-4">
+                                            In progress
+                                        </TabsTrigger>
+                                        <TabsTrigger value="COMPLETED" className="h-9 px-4">
+                                            Completed
+                                        </TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+                            </div>
+                        </div>
 
-            <div className="space-y-6">
-                <TaskToolbar
-                    query={query}
-                    setQuery={setQuery}
-                    status={status}
-                    setStatus={setStatus}
-                    sortKey={sortKey}
-                    setSortKey={setSortKey}
-                    viewMode={viewMode}
-                    setViewMode={setViewMode}
-                    canViewAll={canViewAll}
-                />
-
-                <Card className="rounded-2xl border-border/60 bg-card/50 shadow-sm overflow-hidden">
-                    <div className="p-4 sm:p-6">
-                        {error && <ErrorState message={error} />}
-
-                        {isLoading ? (
-                            <TaskSkeleton />
-                        ) : filtered.length === 0 ? (
-                            <EmptyState
-                                title={query.trim() ? "No matches on this page" : "No tasks found"}
-                                hint={
-                                    query.trim()
-                                        ? "Try a different search, switch pages, or clear filters."
-                                        : "Create your first task to get started."
-                                }
-                            />
-                        ) : (
-                            <TaskList
-                                tasks={filtered}
-                                onOpenTask={openDetails}
-                                onEdit={(t) => {
-                                    setFormMode("edit");
-                                    setFormInitial(t);
-                                    setFormOpen(true);
-                                }}
-                                onDelete={handleDelete}
-                                onUpdateStatus={updateStatus}
-                            />
-                        )}
-
-                        <Separator className="my-6" />
+                        <div className="p-4 sm:p-6">
+                            {/* Toolbar: Search, Dropdowns, Reset, New Task */}
+                            <div className="mb-6">
+                                <TaskToolbar
+                                    query={query}
+                                    setQuery={setQuery}
+                                    status={status}
+                                    setStatus={setStatus}
+                                    sortKey={sortKey}
+                                    setSortKey={setSortKey}
+                                    viewMode={viewMode}
+                                    setViewMode={setViewMode}
+                                    canViewAll={canViewAll}
+                                    showStatusTabs={false}
+                                    rightSlot={
+                                        <div className="flex items-center gap-2">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="icon"
+                                                        className="h-10 w-10"
+                                                        onClick={handleResetFilters}
+                                                        disabled={isInitialLoading}
+                                                    >
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Reset Filters</TooltipContent>
+                                            </Tooltip>
 
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
                             <div className="text-sm text-muted-foreground">
@@ -969,42 +1215,136 @@ export default function UserTasksPage() {
                                 >
                                     Next
                                 </Button>
+                                            <Button
+                                                variant="default"
+                                                className="h-10 px-4"
+                                                onClick={() => {
+                                                    setFormMode("create");
+                                                    setFormInitial(null);
+                                                    setFormOpen(true);
+                                                }}
+                                                disabled={isSaving}
+                                            >
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                New Task
+                                            </Button>
+                                        </div>
+                                    }
+                                />
+                            </div>
+
+                            <Separator className="mb-6" />
+
+                            {error && <ErrorState message={error} />}
+
+                            <FetchingBar show={isFetching && !!pageData} />
+
+                            {isInitialLoading ? (
+                                <TaskSkeleton />
+                            ) : filtered.length === 0 ? (
+                                <EmptyState
+                                    title={query.trim() ? "No matches on this page" : "No tasks found"}
+                                    hint={query.trim() ? "Try a different search, switch pages, or clear filters." : "Create your first task to get started."}
+                                />
+                            ) : (
+                                <TaskList
+                                    tasks={filtered}
+                                    onOpenTask={openDetails}
+                                    onEdit={(t) => {
+                                        setFormMode("edit");
+                                        setFormInitial(t);
+                                        setFormOpen(true);
+                                    }}
+                                    onDelete={requestDelete}
+                                    onUpdateStatus={updateStatus}
+                                    updatingStatusId={updatingStatusId}
+                                />
+                            )}
+
+                            <Separator className="my-6" />
+
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
+                                <div className="text-sm text-muted-foreground">
+                                    {pageData ? (
+                                        <>
+                                            Page <span className="font-medium text-foreground">{pageData.number + 1}</span> of{" "}
+                                            <span className="font-medium text-foreground">{pageData.totalPages}</span> •{" "}
+                                            <span className="font-medium text-foreground">{pageData.totalElements}</span> total
+                                        </>
+                                    ) : (
+                                        "—"
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-end gap-3">
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 px-4"
+                                        disabled={!pageData || pageData.first || isInitialLoading}
+                                        onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
+                                    >
+                                        {isInitialLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Previous
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="h-9 px-4"
+                                        disabled={!pageData || pageData.last || isInitialLoading}
+                                        onClick={() => setPageNumber((p) => p + 1)}
+                                    >
+                                        Next
+                                        {isInitialLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
+
+                <TaskDetailsSheet
+                    open={detailsOpen}
+                    onOpenChange={setDetailsOpen}
+                    task={selected}
+                    isLoading={detailsLoading}
+                    isUpdatingStatus={updatingStatusId != null && selected?.id === updatingStatusId}
+                    onUpdateStatus={updateStatus}
+                    onEdit={(t) => {
+                        setFormMode("edit");
+                        setFormInitial(t);
+                        setFormOpen(true);
+                    }}
+                    onDelete={requestDelete}
+                />
+
+                <TaskFormSheet
+                    open={formOpen}
+                    onOpenChange={setFormOpen}
+                    mode={formMode}
+                    initial={formInitial}
+                    isSaving={isSaving}
+                    onSubmit={async (dto) => {
+                        if (formMode === "create") {
+                            await handleCreate(dto);
+                        } else {
+                            const id = formInitial?.id;
+                            if (!id) return;
+                            await handleUpdate(id, dto);
+                        }
+                    }}
+                />
+
+                <ConfirmDeleteDialog
+                    open={deleteOpen}
+                    onOpenChange={(v) => {
+                        setDeleteOpen(v);
+                        if (!v) setDeleteTarget(null);
+                    }}
+                    task={deleteTarget}
+                    onConfirm={confirmDelete}
+                    isDeleting={isSaving}
+                />
             </div>
-
-            <TaskDetailsSheet
-                open={detailsOpen}
-                onOpenChange={setDetailsOpen}
-                task={selected}
-                isLoading={detailsLoading}
-                onUpdateStatus={updateStatus}
-                onEdit={(t) => {
-                    setFormMode("edit");
-                    setFormInitial(t);
-                    setFormOpen(true);
-                }}
-                onDelete={handleDelete}
-            />
-
-            <TaskFormSheet
-                open={formOpen}
-                onOpenChange={setFormOpen}
-                mode={formMode}
-                initial={formInitial}
-                isSaving={isSaving}
-                onSubmit={async (dto) => {
-                    if (formMode === "create") {
-                        await handleCreate(dto);
-                    } else {
-                        const id = formInitial?.id;
-                        if (!id) return;
-                        await handleUpdate(id, dto);
-                    }
-                }}
-            />
-        </div>
+        </TooltipProvider>
     );
 }

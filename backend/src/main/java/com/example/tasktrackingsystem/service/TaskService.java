@@ -216,7 +216,8 @@ public class TaskService {
                 task.getTitle(),
                 task.getDescription(),
                 task.getTrackingStatus(),
-                task.getPerson() != null ? task.getPerson().getPersonId() : null
+                task.getPerson() != null ? task.getPerson().getPersonId() : null,
+                task.getPerson() != null ? task.getPerson().getUsername() : null
         );
     }
 
