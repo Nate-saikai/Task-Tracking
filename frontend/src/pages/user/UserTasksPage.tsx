@@ -325,7 +325,7 @@ function TaskFormSheet({
                                 setLocalError(null);
                                 const trimmed = title.trim();
                                 if (!trimmed) {
-                                    setLocalError("Title is required.");
+                                    toast.error("Title is required.");
                                     return;
                                 }
 
@@ -336,7 +336,7 @@ function TaskFormSheet({
                                         trackingStatus: mode === "create" ? "TO_DO" : trackingStatus,
                                     });
                                 } catch (e: any) {
-                                    setLocalError(e?.message ?? "Failed to save task.");
+                                    toast.error(e?.message ?? "Failed to save task.");
                                 }
                             }}
                             disabled={isSaving}
@@ -956,7 +956,7 @@ export default function UserTasksPage() {
                 setFormMode("create");
                 await refresh();
             } catch (e: any) {
-                toast.error(e?.message ?? "Failed to create task");
+                // toast.error(e?.message ?? "Failed to create task");
                 throw e;
             } finally {
                 setIsSaving(false);
@@ -985,7 +985,7 @@ export default function UserTasksPage() {
                     }
                 }
             } catch (e: any) {
-                toast.error(e?.message ?? "Failed to update task");
+                // toast.error(e?.message ?? "Failed to update task");
                 throw e;
             } finally {
                 setIsSaving(false);
@@ -1022,7 +1022,7 @@ export default function UserTasksPage() {
             setDeleteOpen(false);
             setDeleteTarget(null);
         } catch (e: any) {
-            toast.error(e?.message ?? "Failed to delete task");
+            // toast.error(e?.message ?? "Failed to delete task");
         } finally {
             setIsSaving(false);
         }
@@ -1032,7 +1032,7 @@ export default function UserTasksPage() {
         async (taskId: number, nextStatus: TaskStatus) => {
             const current = selected && selected.id === taskId ? selected : serverTasks.find((x) => x.id === taskId);
             if (!current?.title) {
-                toast.error("Can't update: missing task title.");
+                // toast.error("Can't update: missing task title.");
                 return;
             }
 
@@ -1055,7 +1055,7 @@ export default function UserTasksPage() {
                     // ignore
                 }
             } catch (e: any) {
-                toast.error(e?.message ?? "Failed to update status");
+                // toast.error(e?.message ?? "Failed to update status");
             } finally {
                 setUpdatingStatusId(null);
             }

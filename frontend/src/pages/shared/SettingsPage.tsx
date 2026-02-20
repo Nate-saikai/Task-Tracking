@@ -153,9 +153,9 @@ export default function SettingsPage() {
             auth.setUser(updated);
             toast.success("Profile updated!");
         } catch (err: any) {
-            toast.error("Failed to update profile", {
-                description: err?.message ?? "Please try again.",
-            });
+            // toast.error("Failed to update profile", {
+            //     description: err?.message ?? "Please try again.",
+            // });
         } finally {
             setIsSavingProfile(false);
             setConfirmProfileOpen(false);
@@ -166,9 +166,9 @@ export default function SettingsPage() {
         e.preventDefault();
 
         if (newPassword !== confirmNewPassword) {
-            toast.error("Passwords don’t match", {
-                description: "Please re-enter the new password to confirm.",
-            });
+            // toast.error("Passwords don’t match", {
+            //     description: "Please re-enter the new password to confirm.",
+            // });
             return;
         }
 
@@ -180,9 +180,9 @@ export default function SettingsPage() {
 
         // safety check in case dialog is triggered unexpectedly
         if (newPassword !== confirmNewPassword) {
-            toast.error("Passwords don’t match", {
-                description: "Please re-enter the new password to confirm.",
-            });
+            // toast.error("Passwords don’t match", {
+            //     description: "Please re-enter the new password to confirm.",
+            // });
             setIsChangingPassword(false);
             setConfirmPasswordOpen(false);
             return;
@@ -198,9 +198,9 @@ export default function SettingsPage() {
             setConfirmNewPassword("");
             toast.success("Password updated!");
         } catch (err: any) {
-            toast.error("Failed to update password", {
-                description: err?.message ?? "Please verify your current password.",
-            });
+            // toast.error("Failed to update password", {
+            //     description: err?.message ?? "Please verify your current password.",
+            // });
         } finally {
             setIsChangingPassword(false);
             setConfirmPasswordOpen(false);
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
-                </AlertDialog>  
+                </AlertDialog>
             </div>
         </TooltipProvider>
     );

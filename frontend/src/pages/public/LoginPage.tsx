@@ -55,7 +55,7 @@ export default function LoginPage() {
                 setMode("login");
             }
         } catch (err: any) {
-            toast.error(err?.message ?? "Authentication failed");
+            // toast.error(err?.message ?? "Authentication failed");
         } finally {
             setIsLoading(false);
         }

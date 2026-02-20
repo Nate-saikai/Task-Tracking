@@ -26,7 +26,6 @@ function extractApiErrorMessage(err: AxiosError<any>): string {
 http.interceptors.response.use(
     (res) => res,
     (err: AxiosError) => {
-        // Skip toast for /auth/me (like your Angular interceptor)
         const url = err.config?.url ?? "";
         if (!url.includes("/auth/me")) {
             const msg = extractApiErrorMessage(err as AxiosError<any>);
