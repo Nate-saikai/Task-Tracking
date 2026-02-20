@@ -41,5 +41,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
      */
     Page<Task> findByPersonPersonIdAndTrackingStatus(Long personId, Status trackingStatus, Pageable pageable);
 
+    Page<Task> findByTitleContainsIgnoreCase(String queryTitle, Pageable pageable);
+
+    Page<Task> findByTrackingStatusAndTitleContainsIgnoreCase(Status status, String queryTitle, Pageable pageable);
+
+
+    Page<Task> findByPersonPersonIdAndTitleContainsIgnoreCase(Long personId, String queryTitle, Pageable pageable);
+
+    Page<Task> findByPersonPersonIdAndTrackingStatusAndTitleContainsIgnoreCase(Long personId, Status status, String queryTitle, Pageable pageable);
+
+    // TODO: Either make use or delete
     Optional<Task> findFirstByPersonPersonIdAndTitleIgnoreCase(Long personId, String title);
 }

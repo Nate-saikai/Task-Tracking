@@ -147,6 +147,48 @@ public class TaskService {
     }
 
     /**
+     * Retrieves tasks matching String search query.
+     * @param queryTitle {@link String} substring query.
+     * @param pageable {@link Pageable} The pagination information.
+     * @return A page of matching TaskDtos.
+     */
+    public Page<TaskDto> getMyTasksByTitle(Long userId, String queryTitle, Pageable pageable) {
+        return taskRepository.findByPersonPersonIdAndTitleContainsIgnoreCase(userId, queryTitle, pageable).map(this::convertToDto);
+    }
+
+    /**
+     * Retrieves tasks matching status and String search query.
+     * @param queryTitle {@link String} substring query.
+     * @param status {@link Status} status to filter by.
+     * @param pageable {@link Pageable} The pagination information.
+     * @return A page of matching TaskDtos.
+     */
+    public Page<TaskDto> getMyTasksByTitleAndStatus(Long userId, String queryTitle, Status status, Pageable pageable) {
+        return taskRepository.findByPersonPersonIdAndTrackingStatusAndTitleContainsIgnoreCase(userId, status, queryTitle, pageable).map(this::convertToDto);
+    }
+
+    /**
+     * Retrieves tasks matching String search query.
+     * @param queryTitle {@link String} substring query.
+     * @param pageable {@link Pageable} The pagination information.
+     * @return A page of matching TaskDtos.
+     */
+    public Page<TaskDto> getTasksByTitle(String queryTitle, Pageable pageable) {
+        return taskRepository.findByTitleContainsIgnoreCase(queryTitle, pageable).map(this::convertToDto);
+    }
+
+    /**
+     * Retrieves tasks matching status and String search query.
+     * @param queryTitle {@link String} substring query.
+     * @param status {@link Status} status to filter by.
+     * @param pageable {@link Pageable} The pagination information.
+     * @return A page of matching TaskDtos.
+     */
+    public Page<TaskDto> getTasksByTitleAndStatus(String queryTitle, Status status, Pageable pageable) {
+        return taskRepository.findByTrackingStatusAndTitleContainsIgnoreCase(status, queryTitle, pageable).map(this::convertToDto);
+    }
+
+    /**
      * Retrieves a paginated list of tasks for a specific user, filtered by status.
      * @param userId   The ID of the task owner.
      * @param status   The status to filter by.

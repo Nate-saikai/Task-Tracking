@@ -40,6 +40,9 @@ const statusMeta: Record<
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
 
+let totalPages;
+let lastPage;
+
 function TaskToolbar({
     query,
     setQuery,
@@ -187,6 +190,8 @@ export default function AdminTasksPage() {
                 ? await api.tasks.getAllPaginated(pageNumber)
                 : await api.tasks.getByStatusPaginated(status, pageNumber);
             setPageData(data);
+            totalPages = data.totalPages;
+            lastPage = data.last;
         } catch (err: any) {
             setError(err.message || "Failed to load tasks.");
         } finally {
@@ -216,16 +221,43 @@ export default function AdminTasksPage() {
         []
     );
 
-    const filtered = useMemo(() => {
-        const list = pageData?.content || [];
-        const q = query.trim().toLowerCase();
-        let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
+    const [filtered, setFiltered] = useState<TaskDto[]>([]);
 
-        return [...result].sort((a, b) => {
-            if (sortKey === "title") return a.title.localeCompare(b.title);
-            return b.id - a.id;
-        });
-    }, [pageData, query, sortKey]);
+    useEffect(() => {
+        let active = true;
+        const loadFiltered = async () => {
+            try {
+                let data;
+                if (status === "ALL" && query) {
+                    data = await api.tasks.getAllByTitlePaginated(query, pageNumber);
+                } else if (status !== "ALL" && query) {
+                    data = await api.tasks.getAllByTitleAndStatusPaginated(query, status, pageNumber);
+                } else {
+                    data = pageData;
+                }
+                if (active && data) {
+                    setFiltered(data.content || []);
+                    totalPages = data.totalPages;
+                    lastPage = data.last;
+                }
+            } catch (err) {}
+        };
+        loadFiltered();
+        return () => {
+            active = false;
+        };
+    }, [query, status, pageNumber, pageData])
+
+    // const filtered = useMemo(() => {
+    //     const list = pageData?.content || [];
+    //     const q = query.trim().toLowerCase();
+    //     let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
+
+    //     return [...result].sort((a, b) => {
+    //         if (sortKey === "title") return a.title.localeCompare(b.title);
+    //         return b.id - a.id;
+    //     });
+    // }, [pageData, query, sortKey]);
 
     return (
         <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -288,7 +320,7 @@ export default function AdminTasksPage() {
 
                                 <div className="flex items-center justify-between mt-4">
                                     <p className="text-sm text-muted-foreground">
-                                        Page {pageNumber + 1} of {pageData?.totalPages || 1}
+                                        Page {pageNumber + 1} of {totalPages! || 1}
                                     </p>
                                     <div className="flex gap-2">
                                         <Button
@@ -300,7 +332,7 @@ export default function AdminTasksPage() {
                                         </Button>
                                         <Button
                                             variant="outline" size="sm"
-                                            disabled={pageData?.last}
+                                            disabled={lastPage!}
                                             onClick={() => setPageNumber(p => p + 1)}
                                         >
                                             Next

@@ -95,6 +95,41 @@ public class TaskController {
         return ResponseEntity.ok(taskService.getTasksByUserIdAndStatus(userId, status, pageable));
     }
 
+    @Operation(summary = "Admin: Filter all tasks by Title",
+            description = "Retrieves a paginated list of all tasks in the system filtered by a title substring. " +
+                    "This endpoint is intended for the Admin Panel and requires ADMIN authority."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered global tasks")
+    @ApiResponse(responseCode = "403", description = "Access denied - ADMIN role required")
+    @GetMapping("/my-tasks/filter/title/{title}/paginated/{pageNumber}")
+    public ResponseEntity<Page<TaskDto>> getMyTasksByTitle(
+            @AuthenticationPrincipal PersonDto personDto,
+            @Parameter(description = "Substring to search against, ignoring case", example = "salesPitch") @PathVariable String title,
+            @Parameter(description = "Zero-based page index", example = "0") @PathVariable int pageNumber
+    ) {
+        Long userId = personDto.getPersonId();
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getMyTasksByTitle(userId, title, pageable));
+    }
+
+    @Operation(summary = "Admin: Filter all tasks by Title and Status",
+            description = "Retrieves a paginated list of all tasks in the system filtered by specific status and title substring. " +
+                    "This endpoint is intended for the Admin Panel and requires ADMIN authority."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered global tasks")
+    @ApiResponse(responseCode = "403", description = "Access denied - ADMIN role required")
+    @GetMapping("/my-tasks/filter/title/{title}/status/{status}/paginated/{pageNumber}")
+    public ResponseEntity<Page<TaskDto>> getMyTasksByTitleAndStatus(
+            @AuthenticationPrincipal PersonDto personDto,
+            @Parameter(description = "Substring to search against, ignoring case", example = "salesPitch") @PathVariable String title,
+            @Parameter(description = "Status to filter by", example = "IN_PROGRESS") @PathVariable Status status,
+            @Parameter(description = "Zero-based page index", example = "0") @PathVariable int pageNumber
+    ) {
+        Long userId = personDto.getPersonId();
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getMyTasksByTitleAndStatus(userId, title, status, pageable));
+    }
+
     /**
      * Filters all tasks by the provided Status enum.
      * Used by the Admin Panel to view all transactions by Status.
@@ -113,6 +148,39 @@ public class TaskController {
     ) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
         return ResponseEntity.ok(taskService.getTasksByStatus(status, pageable));
+    }
+
+    @Operation(summary = "Admin: Filter all tasks by Title",
+            description = "Retrieves a paginated list of all tasks in the system filtered by a title substring. " +
+                    "This endpoint is intended for the Admin Panel and requires ADMIN authority."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered global tasks")
+    @ApiResponse(responseCode = "403", description = "Access denied - ADMIN role required")
+    @GetMapping("/title/{title}/paginated/{pageNumber}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Page<TaskDto>> getTasksByTitle(
+            @Parameter(description = "Substring to search against, ignoring case", example = "salesPitch") @PathVariable String title,
+            @Parameter(description = "Zero-based page index", example = "0") @PathVariable int pageNumber
+    ) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getTasksByTitle(title, pageable));
+    }
+
+    @Operation(summary = "Admin: Filter all tasks by Title and Status",
+            description = "Retrieves a paginated list of all tasks in the system filtered by specific status and title substring. " +
+                    "This endpoint is intended for the Admin Panel and requires ADMIN authority."
+    )
+    @ApiResponse(responseCode = "200", description = "Successfully retrieved filtered global tasks")
+    @ApiResponse(responseCode = "403", description = "Access denied - ADMIN role required")
+    @GetMapping("/title/{title}/status/{status}/paginated/{pageNumber}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Page<TaskDto>> getTasksByTitleAndStatus(
+            @Parameter(description = "Substring to search against, ignoring case", example = "salesPitch") @PathVariable String title,
+            @Parameter(description = "Status to filter by", example = "IN_PROGRESS") @PathVariable Status status,
+            @Parameter(description = "Zero-based page index", example = "0") @PathVariable int pageNumber
+    ) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+        return ResponseEntity.ok(taskService.getTasksByTitleAndStatus(title, status, pageable));
     }
 
     /**

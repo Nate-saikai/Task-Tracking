@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // API + types (adjust import paths if yours differ)
 import { api, type Page } from "@/api/api";
@@ -37,6 +37,11 @@ const statusMeta: Record<
     IN_PROGRESS: { label: "In progress", icon: <Clock3 className="h-4 w-4" />, badge: "secondary" },
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
+
+let totalPages;
+let lastPage;
+let firstPage;
+let totalElements;
 
 function sortTasks(tasks: TaskDto[], sortKey: SortKey) {
     const copy = [...tasks];
@@ -663,6 +668,10 @@ export default function UserTasksPage() {
                             : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus);
 
                 setPageData(data);
+                totalPages = data.totalPages;
+                lastPage = data.last;
+                firstPage = data.first;
+                totalElements = data.totalElements;
             } catch (e: any) {
                 setError(e?.message ?? "Failed to load tasks.");
                 setPageData(null);
@@ -686,15 +695,44 @@ export default function UserTasksPage() {
 
     const serverTasks = pageData?.content ?? [];
 
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        let list = serverTasks;
-        if (q) {
-            list = list.filter((t) => (`${t.title} ?? ""}`).toLowerCase().includes(q));
-        }
+    const [filtered, setFiltered] = useState<TaskDto[]>([]);
+    
+    useEffect(() => {
+        let active = true;
+        const loadFiltered = async () => {
+            try {
+                let data;
+                if (status === "ALL" && query) {
+                    data = await api.tasks.getMyTasksByTitlePaginated(query, pageNumber);
+                } else if (status !== "ALL" && query) {
+                    data = await api.tasks.getMyTasksByTitleAndStatusPaginated(query, status, pageNumber);
+                } else {
+                    data = pageData;
+                }
+                if (active && data) {
+                    setFiltered(data.content || []);
+                    totalPages = data.totalPages;
+                    lastPage = data.last;
+                    firstPage = data.first;
+                    totalElements = data.totalElements;
+                }
+            } catch (err) {}
+        };
+        loadFiltered();
+        return () => {
+            active = false;
+        };
+    }, [query, status, pageNumber, pageData])
 
-        return sortTasks(list, sortKey);
-    }, [serverTasks, query, sortKey]);
+    // const filtered = useMemo(() => {
+    //     const q = query.trim().toLowerCase();
+    //     let list = serverTasks;
+    //     if (q) {
+    //         list = list.filter((t) => (`${t.title} ?? ""}`).toLowerCase().includes(q));
+    //     }
+
+    //     return sortTasks(list, sortKey);
+    // }, [serverTasks, query, sortKey]);
 
     const refresh = useCallback(async () => {
         await loadPage(pageNumber, status, viewMode);
@@ -906,8 +944,8 @@ export default function UserTasksPage() {
                                 {pageData ? (
                                     <>
                                         Page <span className="font-medium text-foreground">{pageData.number + 1}</span> of{" "}
-                                        <span className="font-medium text-foreground">{pageData.totalPages}</span> •{" "}
-                                        <span className="font-medium text-foreground">{pageData.totalElements}</span> total
+                                        <span className="font-medium text-foreground">{totalPages!}</span> •{" "}
+                                        <span className="font-medium text-foreground">{totalElements!}</span> total
                                     </>
                                 ) : (
                                     "—"
@@ -918,7 +956,7 @@ export default function UserTasksPage() {
                                 <Button
                                     variant="outline"
                                     className="h-9 px-4"
-                                    disabled={!pageData || pageData.first || isLoading}
+                                    disabled={!pageData || firstPage! || isLoading}
                                     onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
                                 >
                                     Previous
@@ -926,7 +964,7 @@ export default function UserTasksPage() {
                                 <Button
                                     variant="outline"
                                     className="h-9 px-4"
-                                    disabled={!pageData || pageData.last || isLoading}
+                                    disabled={!pageData || lastPage! || isLoading}
                                     onClick={() => setPageNumber((p) => p + 1)}
                                 >
                                     Next
