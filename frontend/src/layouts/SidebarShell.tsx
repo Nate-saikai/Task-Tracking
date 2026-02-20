@@ -83,10 +83,10 @@ export default function SidebarShell({ title, basePath }: Props) {
 
             <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{me?.fullName ?? "User"}</div>
+                <div className="truncate text-xs text-muted-foreground">@{me?.username.toLowerCase() ?? "-"}</div>
                 <div className="truncate text-xs text-muted-foreground">
-                    {me?.role ?? "-"} • @{me?.username ?? "-"}
+                    {me?.role.toLowerCase() ?? "-"} • ID: {me?.personId ?? "-"}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">ID: {me?.personId ?? "-"}</div>
             </div>
         </div>
     );

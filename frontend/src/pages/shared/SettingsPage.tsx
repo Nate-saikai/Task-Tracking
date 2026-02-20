@@ -276,7 +276,7 @@ export default function SettingsPage() {
                                                 </span>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                Shown on your profile and mentions (if applicable).
+                                                Used for logging in.
                                             </TooltipContent>
                                         </Tooltip>
                                     </div>
