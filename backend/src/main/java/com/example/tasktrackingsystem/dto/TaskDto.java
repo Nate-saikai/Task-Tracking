@@ -30,4 +30,7 @@ public class TaskDto {
 
     @Schema(description = "The ID of the user who owns this task", example = "101")
     private Long userId;
+
+    @Schema(description = "The username of the task owner", example = "john_doe") // Add this
+    private String username;
 }
