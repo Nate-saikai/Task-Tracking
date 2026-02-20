@@ -689,9 +689,8 @@ export default function UserTasksPage() {
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         let list = serverTasks;
-
         if (q) {
-            list = list.filter((t) => (`${t.title} ${t.description ?? ""}`).toLowerCase().includes(q));
+            list = list.filter((t) => (`${t.title} ?? ""}`).toLowerCase().includes(q));
         }
 
         return sortTasks(list, sortKey);
