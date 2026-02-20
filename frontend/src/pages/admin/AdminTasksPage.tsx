@@ -219,7 +219,7 @@ export default function AdminTasksPage() {
     const filtered = useMemo(() => {
         const list = pageData?.content || [];
         const q = query.trim().toLowerCase();
-        let result = q ? list.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)) : list;
+        let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
 
         return [...result].sort((a, b) => {
             if (sortKey === "title") return a.title.localeCompare(b.title);
