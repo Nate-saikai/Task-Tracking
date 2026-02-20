@@ -42,6 +42,8 @@ const statusMeta: Record<Status, { label: string; icon: React.ReactNode; badge: 
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
 
+let totalPages;
+let lastPage;
 function FetchingBar({ show }: { show: boolean }) {
     if (!show) return null;
     return (
@@ -211,6 +213,8 @@ export default function AdminTasksPage() {
                 ? await api.tasks.getAllPaginated(pageNumber)
                 : await api.tasks.getByStatusPaginated(status, pageNumber);
             setPageData(data);
+            totalPages = data.totalPages;
+            lastPage = data.last;
             hasLoadedOnceRef.current = true;
         } catch (err: any) {
             setError(err.message || "Failed to load tasks.");
@@ -239,16 +243,43 @@ export default function AdminTasksPage() {
         finally { setDetailsLoading(false); }
     }, []);
 
-    const filtered = useMemo(() => {
-        const list = pageData?.content || [];
-        const q = query.trim().toLowerCase();
-        let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
+    const [filtered, setFiltered] = useState<TaskDto[]>([]);
 
-        return [...result].sort((a, b) => {
-            if (sortKey === "title") return a.title.localeCompare(b.title);
-            return b.id - a.id;
-        });
-    }, [pageData, query, sortKey]);
+    useEffect(() => {
+        let active = true;
+        const loadFiltered = async () => {
+            try {
+                let data;
+                if (status === "ALL" && query) {
+                    data = await api.tasks.getAllByTitlePaginated(query, pageNumber);
+                } else if (status !== "ALL" && query) {
+                    data = await api.tasks.getAllByTitleAndStatusPaginated(query, status, pageNumber);
+                } else {
+                    data = pageData;
+                }
+                if (active && data) {
+                    setFiltered(data.content || []);
+                    totalPages = data.totalPages;
+                    lastPage = data.last;
+                }
+            } catch (err) {}
+        };
+        loadFiltered();
+        return () => {
+            active = false;
+        };
+    }, [query, status, pageNumber, pageData])
+
+    // const filtered = useMemo(() => {
+    //     const list = pageData?.content || [];
+    //     const q = query.trim().toLowerCase();
+    //     let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
+
+    //     return [...result].sort((a, b) => {
+    //         if (sortKey === "title") return a.title.localeCompare(b.title);
+    //         return b.id - a.id;
+    //     });
+    // }, [pageData, query, sortKey]);
 
     const handleReset = () => {
         setQuery("");
@@ -367,6 +398,26 @@ export default function AdminTasksPage() {
                                 </div>
                             )}
 
+                                <div className="flex items-center justify-between mt-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Page {pageNumber + 1} of {totalPages! || 1}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline" size="sm"
+                                            disabled={pageNumber === 0}
+                                            onClick={() => setPageNumber(p => p - 1)}
+                                        >
+                                            Prev
+                                        </Button>
+                                        <Button
+                                            variant="outline" size="sm"
+                                            disabled={lastPage!}
+                                            onClick={() => setPageNumber(p => p + 1)}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
                             {/* Mobile list view logic could go here, matching UserTasksPage cards */}
 
                             <Separator className="my-6" />

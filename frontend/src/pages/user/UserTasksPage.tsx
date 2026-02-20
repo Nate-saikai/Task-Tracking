@@ -1,6 +1,5 @@
 import * as React from "react";
-
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // API + types (adjust import paths if yours differ)
 import { api, type Page } from "@/api/api";
@@ -62,6 +61,11 @@ const statusMeta: Record<TaskStatus, { label: string; icon: React.ReactNode; bad
     IN_PROGRESS: { label: "In progress", icon: <Clock3 className="h-4 w-4" />, badge: "secondary" },
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
+
+let totalPages;
+let lastPage;
+let firstPage;
+let totalElements;
 
 function sortTasks(tasks: TaskDto[], sortKey: SortKey) {
     const copy = [...tasks];
@@ -853,6 +857,34 @@ export default function UserTasksPage() {
         if (!canViewAll && viewMode === "ALL") setViewMode("MY");
     }, [canViewAll, viewMode]);
 
+    const loadPage = useCallback(
+        async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode) => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const data: Page<TaskDto> =
+                    nextViewMode === "ALL"
+                        ? nextStatus === "ALL"
+                            ? await api.tasks.getAllPaginated(nextPageNumber)
+                            : await api.tasks.getByStatusPaginated(nextStatus, nextPageNumber)
+                        : nextStatus === "ALL"
+                            ? await api.tasks.getMyTasksPaginated(nextPageNumber)
+                            : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus);
+
+                setPageData(data);
+                totalPages = data.totalPages;
+                lastPage = data.last;
+                firstPage = data.first;
+                totalElements = data.totalElements;
+            } catch (e: any) {
+                setError(e?.message ?? "Failed to load tasks.");
+                setPageData(null);
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        []
+    );
     const loadPage = useCallback(async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode) => {
         setError(null);
 
@@ -893,6 +925,44 @@ export default function UserTasksPage() {
 
     const serverTasks = pageData?.content ?? [];
 
+    const [filtered, setFiltered] = useState<TaskDto[]>([]);
+    
+    useEffect(() => {
+        let active = true;
+        const loadFiltered = async () => {
+            try {
+                let data;
+                if (status === "ALL" && query) {
+                    data = await api.tasks.getMyTasksByTitlePaginated(query, pageNumber);
+                } else if (status !== "ALL" && query) {
+                    data = await api.tasks.getMyTasksByTitleAndStatusPaginated(query, status, pageNumber);
+                } else {
+                    data = pageData;
+                }
+                if (active && data) {
+                    setFiltered(data.content || []);
+                    totalPages = data.totalPages;
+                    lastPage = data.last;
+                    firstPage = data.first;
+                    totalElements = data.totalElements;
+                }
+            } catch (err) {}
+        };
+        loadFiltered();
+        return () => {
+            active = false;
+        };
+    }, [query, status, pageNumber, pageData])
+
+    // const filtered = useMemo(() => {
+    //     const q = query.trim().toLowerCase();
+    //     let list = serverTasks;
+    //     if (q) {
+    //         list = list.filter((t) => (`${t.title} ?? ""}`).toLowerCase().includes(q));
+    //     }
+
+    //     return sortTasks(list, sortKey);
+    // }, [serverTasks, query, sortKey]);
     const deferredQuery = React.useDeferredValue(query);
 
     const filtered = useMemo(() => {
@@ -1115,6 +1185,36 @@ export default function UserTasksPage() {
                                                 <TooltipContent>Reset Filters</TooltipContent>
                                             </Tooltip>
 
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
+                            <div className="text-sm text-muted-foreground">
+                                {pageData ? (
+                                    <>
+                                        Page <span className="font-medium text-foreground">{pageData.number + 1}</span> of{" "}
+                                        <span className="font-medium text-foreground">{totalPages!}</span> •{" "}
+                                        <span className="font-medium text-foreground">{totalElements!}</span> total
+                                    </>
+                                ) : (
+                                    "—"
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="h-9 px-4"
+                                    disabled={!pageData || firstPage! || isLoading}
+                                    onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-9 px-4"
+                                    disabled={!pageData || lastPage! || isLoading}
+                                    onClick={() => setPageNumber((p) => p + 1)}
+                                >
+                                    Next
+                                </Button>
                                             <Button
                                                 variant="default"
                                                 className="h-10 px-4"

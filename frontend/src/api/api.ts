@@ -56,6 +56,12 @@ export const api = {
         getAllPaginated: (pageNumber: number) =>
             http.get<Page<TaskDto>>(`${TASK_BASE}/paginated/${pageNumber}`).then(r => r.data),
 
+        getAllByTitlePaginated: (title: String, pageNumber: number) =>
+            http.get<Page<TaskDto>>(`${TASK_BASE}/title/${title}/paginated/${pageNumber}`).then(r => r.data),
+
+        getAllByTitleAndStatusPaginated: (title: String, status: Status, pageNumber: number) =>
+            http.get<Page<TaskDto>>(`${TASK_BASE}/title/${title}/status/${status}/paginated/${pageNumber}`).then(r => r.data),
+
         getById: (taskId: number) =>
             http.get<TaskDto>(`${TASK_BASE}/${taskId}`).then(r => r.data),
 
@@ -65,6 +71,12 @@ export const api = {
 
         getMyTasksByStatusPaginated: (pageNumber: number, status: Status) =>
             http.get<Page<TaskDto>>(`${TASK_BASE}/my-tasks/filter/paginated/${pageNumber}`, { params: { status } }).then(r => r.data),
+
+        getMyTasksByTitlePaginated: (title: String, pageNumber: number) =>
+            http.get<Page<TaskDto>>(`${TASK_BASE}/my-tasks/filter/title/${title}/paginated/${pageNumber}`).then(r => r.data),
+
+        getMyTasksByTitleAndStatusPaginated: (title: String, status: Status, pageNumber: number) =>
+            http.get<Page<TaskDto>>(`${TASK_BASE}/my-tasks/filter/title/${title}/status/${status}/paginated/${pageNumber}`).then(r => r.data),
 
         // ADMIN
         getByStatusPaginated: (status: Status, pageNumber: number) =>
