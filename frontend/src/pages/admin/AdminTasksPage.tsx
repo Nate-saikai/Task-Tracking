@@ -170,9 +170,9 @@ function TaskDetailsSheet({
                                     <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2 text-muted-foreground">
                                             <User2 className="h-4 w-4" />
-                                            Owner ID
+                                            Owner
                                         </div>
-                                        <span className="font-mono bg-muted px-1.5 rounded">{task.userId}</span>
+                                        <span className="font-mono bg-muted px-1.5 rounded">{task.username}</span>
                                     </div>
                                 </div>
                             </div>
@@ -346,7 +346,7 @@ export default function AdminTasksPage() {
                                                         </TableCell>
                                                         <TableCell className="py-4">
                                                             <Badge variant="outline" className="font-mono text-[10px] uppercase">
-                                                                ID: {t.userId}
+                                                                {t.username}
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="py-4">

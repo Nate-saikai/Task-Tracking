@@ -6,6 +6,7 @@ export interface TaskDto {
   description?: string;
   trackingStatus: Status;
   userId: number;
+  username: string;
 }
 
 export interface CreateTaskDto {
