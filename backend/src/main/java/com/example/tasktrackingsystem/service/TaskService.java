@@ -41,12 +41,6 @@ public class TaskService {
         // Find the user by username
         PersonDto dto = personService.findById(userId);
 
-        // Check if the user is already assigned the task
-        Optional<Task> exists = taskRepository.findFirstByPersonPersonIdAndTitleIgnoreCase(userId, createTaskDto.getTitle());
-        if (exists.isPresent()) {
-            throw new DuplicateKeyException(String.format("'%s' is already assigned to task '%s'", dto.getFullName(), createTaskDto.getTitle()));
-        }
-
         // Map CreateTaskDto to Task entity
         Task task = convertToEntity(createTaskDto);
 
@@ -83,13 +77,6 @@ public class TaskService {
         if (!task.getPerson().getPersonId().equals(userId)) {
             throw new InvalidInputException("You do not have permission to update this task.");
         }
-
-        // Check if rename title already a title for a task assigned to this user
-        Optional<Task> exists = taskRepository.findFirstByPersonPersonIdAndTitleIgnoreCase(userId, details.getTitle());
-        if (exists.isPresent()) {
-            throw new DuplicateKeyException(String.format("'%s' already has a task named '%s'", task.getPerson().getFullName(), details.getTitle()));
-        }
-
 
         // Check if update title is not the same
         if (!details.getTitle().equalsIgnoreCase(task.getTitle())) {

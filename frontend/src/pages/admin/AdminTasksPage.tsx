@@ -3,24 +3,20 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 
 // API + types
 import { api, type Page } from "@/api/api";
-import type { TaskDto, CreateTaskDto } from "@/api/types/Task";
+import type { TaskDto } from "@/api/types/Task";
 import type { Status } from "@/api/types/Status";
 
 // shadcn/ui
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 // icons
@@ -28,8 +24,7 @@ import {
     CheckCircle2,
     Circle,
     Clock3,
-    MoreHorizontal,
-    Plus,
+    Eye,
     Search,
     User2,
 } from "lucide-react";
@@ -93,174 +88,80 @@ function TaskToolbar({
                         <TabsTrigger value="COMPLETED">Completed</TabsTrigger>
                     </TabsList>
                 </Tabs>
-                <div className="flex items-center gap-2 md:hidden">{rightSlot}</div>
             </div>
         </div>
     );
 }
 
-function TaskSkeleton() {
-    return (
-        <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-[260px]" />
-                        <Skeleton className="h-3 w-[180px]" />
-                    </div>
-                    <Skeleton className="h-8 w-16" />
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function EmptyState({ title, hint }: { title: string; hint?: string }) {
-    return (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-10 text-center">
-            <div className="text-sm font-medium">{title}</div>
-            {hint && <div className="mt-1 text-sm text-muted-foreground">{hint}</div>}
-        </div>
-    );
-}
-
-function ErrorState({ message }: { message: string }) {
-    return (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            {message}
-        </div>
-    );
-}
-
+// Updated to match UserTasksPage.tsx layout
 function TaskDetailsSheet({
     open,
     onOpenChange,
     task,
+    isLoading,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
     task: TaskDto | null;
+    isLoading: boolean;
 }) {
-    if (!task) return null;
-    const s = statusMeta[task.trackingStatus as Status];
+    if (!open) return null;
+
+    const s = task ? statusMeta[task.trackingStatus as Status] : null;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-md">
-                <SheetHeader className="space-y-1">
-                    <SheetTitle className="leading-tight">{task.title}</SheetTitle>
-                    <SheetDescription className="flex items-center gap-2">
-                        <Badge variant={s.badge} className="gap-1">
-                            {s.icon}
-                            {s.label}
-                        </Badge>
-                    </SheetDescription>
-                </SheetHeader>
-
-                <div className="mt-6 space-y-5 text-sm">
-                    {task.description ? (
-                        <p className="whitespace-pre-wrap text-foreground/90">{task.description}</p>
-                    ) : (
-                        <p className="text-muted-foreground">No description.</p>
-                    )}
-                    <Separator />
-                    <div className="grid gap-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <User2 className="h-4 w-4" />
-                                Owner ID
-                            </div>
-                            <div className="truncate">{task.userId}</div>
-                        </div>
+            <SheetContent className="w-full sm:max-w-md p-6 sm:p-8 overflow-y-auto">
+                {isLoading || !task ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-8 w-[80%]" />
+                        <Skeleton className="h-5 w-[50%]" />
+                        <Separator className="my-6" />
+                        <Skeleton className="h-32 w-full" />
+                        <Skeleton className="h-12 w-full mt-6" />
                     </div>
-                </div>
+                ) : (
+                    <>
+                        <SheetHeader className="space-y-3">
+                            <SheetTitle className="leading-tight text-2xl">{task.title}</SheetTitle>
+                            <SheetDescription className="flex items-center gap-3 text-sm">
+                                {s && (
+                                    <Badge variant={s.badge} className="gap-1.5 px-2.5 py-0.5 text-xs">
+                                        {s.icon}
+                                        {s.label}
+                                    </Badge>
+                                )}
+                                <span className="text-muted-foreground">Task #{task.id}</span>
+                            </SheetDescription>
+                        </SheetHeader>
+
+                        <div className="mt-8 space-y-6">
+                            <div className="bg-muted/30 rounded-lg p-4">
+                                {task.description ? (
+                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">
+                                        {task.description}
+                                    </p>
+                                ) : (
+                                    <p className="text-muted-foreground text-sm italic">No description provided.</p>
+                                )}
+                            </div>
+
+                            <Separator />
+
+                            <div className="grid gap-3 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <User2 className="h-4 w-4" />
+                                        Owner ID
+                                    </div>
+                                    <div className="truncate font-mono">{task.userId}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
             </SheetContent>
         </Sheet>
-    );
-}
-
-function TaskEditorDialog({
-    open,
-    onOpenChange,
-    initial,
-    onSave,
-    title,
-}: {
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-    initial?: Partial<TaskDto> | null;
-    onSave: (payload: { title: string; description?: string }) => Promise<void> | void;
-    title: string;
-}) {
-    const [taskTitle, setTaskTitle] = useState(initial?.title ?? "");
-    const [desc, setDesc] = useState(initial?.description ?? "");
-    const [saving, setSaving] = useState(false);
-
-    React.useEffect(() => {
-        if (open) {
-            setTaskTitle(initial?.title ?? "");
-            setDesc(initial?.description ?? "");
-            setSaving(false);
-        }
-    }, [open, initial]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>Provide task details below.</DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="taskTitle">Title</Label>
-                        <Input
-                            id="taskTitle"
-                            value={taskTitle}
-                            onChange={(e) => setTaskTitle(e.target.value)}
-                            placeholder="e.g. Audit security logs"
-                            disabled={saving}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="taskDesc">Description</Label>
-                        <Textarea
-                            id="taskDesc"
-                            value={desc}
-                            onChange={(e) => setDesc(e.target.value)}
-                            placeholder="Add context or links."
-                            className="min-h-[96px]"
-                            disabled={saving}
-                        />
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                        <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={async () => {
-                                setSaving(true);
-                                try {
-                                    await onSave({
-                                        title: taskTitle.trim(),
-                                        description: desc.trim() || undefined,
-                                    });
-                                    onOpenChange(false);
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}
-                            disabled={saving || taskTitle.trim().length < 3}
-                        >
-                            {saving ? "Saving…" : "Save"}
-                        </Button>
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
     );
 }
 
@@ -276,8 +177,7 @@ export default function AdminTasksPage() {
 
     const [selected, setSelected] = useState<TaskDto | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
-    const [editorOpen, setEditorOpen] = useState(false);
-    const [editing, setEditing] = useState<TaskDto | null>(null);
+    const [detailsLoading, setDetailsLoading] = useState(false); // Added matching state
 
     const loadTasks = useCallback(async () => {
         setIsLoading(true);
@@ -298,32 +198,23 @@ export default function AdminTasksPage() {
         loadTasks();
     }, [loadTasks]);
 
-    const handleSave = async (payload: { title: string; description?: string }) => {
-        const dto: CreateTaskDto = {
-            ...payload,
-            trackingStatus: editing?.trackingStatus || "TO_DO"
-        };
-        try {
-            if (editing) {
-                await api.tasks.update(editing.id, dto);
-            } else {
-                await api.tasks.create(dto);
+    // Matching fresh fetch logic from UserTasksPage.tsx
+    const openDetails = useCallback(
+        async (t: TaskDto) => {
+            setSelected(t);
+            setDetailsOpen(true);
+            setDetailsLoading(true);
+            try {
+                const fresh = await api.tasks.getById(t.id);
+                setSelected(fresh);
+            } catch {
+                // Keep existing selection if fetch fails
+            } finally {
+                setDetailsLoading(false);
             }
-            loadTasks();
-        } catch (err: any) {
-            alert(err.message || "Save failed");
-        }
-    };
-
-    const handleDelete = async (id: number) => {
-        if (!window.confirm("Delete this task?")) return;
-        try {
-            await api.tasks.delete(id);
-            loadTasks();
-        } catch (err: any) {
-            alert(err.message || "Delete failed");
-        }
-    };
+        },
+        []
+    );
 
     const filtered = useMemo(() => {
         const list = pageData?.content || [];
@@ -338,14 +229,9 @@ export default function AdminTasksPage() {
 
     return (
         <div className="mx-auto w-full max-w-6xl px-4 py-8">
-            <div className="flex items-end justify-between gap-3">
-                <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">Admin Tasks</h1>
-                    <p className="text-sm text-muted-foreground">Manage all user tasks across the system.</p>
-                </div>
-                <Button className="gap-2" onClick={() => { setEditing(null); setEditorOpen(true); }}>
-                    <Plus className="h-4 w-4" /> New Task
-                </Button>
+            <div className="space-y-1">
+                <h1 className="text-2xl font-semibold tracking-tight">Admin Tasks</h1>
+                <p className="text-sm text-muted-foreground">Monitoring user tasks across the system.</p>
             </div>
 
             <Separator className="my-6" />
@@ -360,9 +246,11 @@ export default function AdminTasksPage() {
 
                 <Card className="rounded-2xl border-border/60 bg-card shadow-sm">
                     <div className="p-4 sm:p-5">
-                        {error && <ErrorState message={error} />}
-                        {isLoading ? <TaskSkeleton /> : filtered.length === 0 ? (
-                            <EmptyState title="No tasks found" />
+                        {error && <div className="p-4 text-sm text-destructive">{error}</div>}
+                        {isLoading ? (
+                            <Skeleton className="h-[400px] w-full rounded-xl" />
+                        ) : filtered.length === 0 ? (
+                            <div className="p-10 text-center text-muted-foreground">No tasks found</div>
                         ) : (
                             <div className="space-y-4">
                                 <Table>
@@ -371,25 +259,27 @@ export default function AdminTasksPage() {
                                             <TableHead>Title</TableHead>
                                             <TableHead>Owner ID</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
+                                            <TableHead className="text-right">View</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filtered.map(t => (
-                                            <TableRow key={t.id} className="cursor-pointer" onClick={() => { setSelected(t); setDetailsOpen(true); }}>
+                                            <TableRow
+                                                key={t.id}
+                                                className="cursor-pointer"
+                                                onClick={() => openDetails(t)} // Updated to call openDetails
+                                            >
                                                 <TableCell className="font-medium">{t.title}</TableCell>
-                                                <TableCell>{t.userId}</TableCell>
+                                                <TableCell className="font-mono text-xs">{t.userId}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant={statusMeta[t.trackingStatus as Status].badge}>{t.trackingStatus}</Badge>
+                                                    <Badge variant={statusMeta[t.trackingStatus as Status].badge}>
+                                                        {t.trackingStatus}
+                                                    </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => { setEditing(t); setEditorOpen(true); }}>Edit</DropdownMenuItem>
-                                                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(t.id)}>Delete</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="icon">
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -397,10 +287,24 @@ export default function AdminTasksPage() {
                                 </Table>
 
                                 <div className="flex items-center justify-between mt-4">
-                                    <p className="text-sm text-muted-foreground">Page {pageNumber + 1} of {pageData?.totalPages || 1}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        Page {pageNumber + 1} of {pageData?.totalPages || 1}
+                                    </p>
                                     <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" disabled={pageNumber === 0} onClick={() => setPageNumber(p => p - 1)}>Prev</Button>
-                                        <Button variant="outline" size="sm" disabled={pageData?.last} onClick={() => setPageNumber(p => p + 1)}>Next</Button>
+                                        <Button
+                                            variant="outline" size="sm"
+                                            disabled={pageNumber === 0}
+                                            onClick={() => setPageNumber(p => p - 1)}
+                                        >
+                                            Prev
+                                        </Button>
+                                        <Button
+                                            variant="outline" size="sm"
+                                            disabled={pageData?.last}
+                                            onClick={() => setPageNumber(p => p + 1)}
+                                        >
+                                            Next
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -409,13 +313,11 @@ export default function AdminTasksPage() {
                 </Card>
             </div>
 
-            <TaskDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} task={selected} />
-            <TaskEditorDialog
-                open={editorOpen}
-                onOpenChange={setEditorOpen}
-                initial={editing}
-                title={editing ? "Edit Task" : "Create Task"}
-                onSave={handleSave}
+            <TaskDetailsSheet
+                open={detailsOpen}
+                onOpenChange={setDetailsOpen}
+                task={selected}
+                isLoading={detailsLoading} // Added isLoading prop
             />
         </div>
     );
