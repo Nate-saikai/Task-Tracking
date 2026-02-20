@@ -36,19 +36,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "sonner";
 
 // icons
-import {
-    CheckCircle2,
-    Circle,
-    Clock3,
-    Pencil,
-    Plus,
-    Search,
-    Trash2,
-    ArrowLeft,
-    ArrowRight,
-    Loader2,
-    RotateCcw,
-} from "lucide-react";
+import { CheckCircle2, Circle, Clock3, Pencil, Plus, Search, Trash2, ArrowLeft, ArrowRight, Loader2, RotateCcw } from "lucide-react";
 
 type TaskStatus = Status;
 type ViewMode = "MY" | "ALL";
@@ -61,11 +49,6 @@ const statusMeta: Record<TaskStatus, { label: string; icon: React.ReactNode; bad
     IN_PROGRESS: { label: "In progress", icon: <Clock3 className="h-4 w-4" />, badge: "secondary" },
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
-
-let totalPages;
-let lastPage;
-let firstPage;
-let totalElements;
 
 function sortTasks(tasks: TaskDto[], sortKey: SortKey) {
     const copy = [...tasks];
@@ -345,11 +328,16 @@ function TaskFormSheet({
                                     setLocalError("Title is required.");
                                     return;
                                 }
-                                await onSubmit({
-                                    title: trimmed,
-                                    description: description?.trim() ? description.trim() : undefined,
-                                    trackingStatus: mode === "create" ? "TO_DO" : trackingStatus,
-                                });
+
+                                try {
+                                    await onSubmit({
+                                        title: trimmed,
+                                        description: description?.trim() ? description.trim() : undefined,
+                                        trackingStatus: mode === "create" ? "TO_DO" : trackingStatus,
+                                    });
+                                } catch (e: any) {
+                                    setLocalError(e?.message ?? "Failed to save task.");
+                                }
                             }}
                             disabled={isSaving}
                         >
@@ -363,6 +351,7 @@ function TaskFormSheet({
     );
 }
 
+/* TaskDetailsSheet, TaskList, ConfirmDeleteDialog unchanged from your version */
 function TaskDetailsSheet({
     open,
     onOpenChange,
@@ -503,6 +492,7 @@ function TaskDetailsSheet({
     );
 }
 
+/* TaskList unchanged from your version */
 function TaskList({
     tasks,
     onOpenTask,
@@ -532,10 +522,7 @@ function TaskList({
                     return (
                         <div
                             key={t.id}
-                            className={cn(
-                                "w-full rounded-2xl border bg-card p-5 text-left shadow-sm transition-all hover:shadow-md",
-                                isUpdating && "opacity-70"
-                            )}
+                            className={cn("w-full rounded-2xl border bg-card p-5 text-left shadow-sm transition-all hover:shadow-md", isUpdating && "opacity-70")}
                         >
                             <button onClick={() => onOpenTask(t)} className="w-full text-left focus:outline-none mb-4">
                                 <div className="min-w-0">
@@ -547,9 +534,7 @@ function TaskList({
                                         </Badge>
                                         <span>#{t.id}</span>
                                     </div>
-                                    <div className="mt-3 line-clamp-2 text-sm text-muted-foreground leading-relaxed">
-                                        {t.description || "No description"}
-                                    </div>
+                                    <div className="mt-3 line-clamp-2 text-sm text-muted-foreground leading-relaxed">{t.description || "No description"}</div>
                                 </div>
                             </button>
 
@@ -716,7 +701,14 @@ function TaskList({
 
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(t)} aria-label="Edit" disabled={isUpdating}>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={() => onEdit(t)}
+                                                        aria-label="Edit"
+                                                        disabled={isUpdating}
+                                                    >
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
                                                 </TooltipTrigger>
@@ -803,7 +795,6 @@ export default function UserTasksPage() {
     const canViewAll = me?.role === "ADMIN";
 
     const [viewMode, setViewMode] = useState<ViewMode>("MY");
-
     const [query, setQuery] = useState("");
     const [status, setStatus] = useState<TaskStatus | "ALL">("ALL");
     const [sortKey, setSortKey] = useState<SortKey>("recent");
@@ -815,6 +806,7 @@ export default function UserTasksPage() {
 
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [isFetching, setIsFetching] = useState(false);
+    const isLoading = isInitialLoading || isFetching;
 
     const [error, setError] = useState<string | null>(null);
 
@@ -834,8 +826,24 @@ export default function UserTasksPage() {
     // per-task status update loading
     const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
 
+    const setStatusAndReset = useCallback((v: TaskStatus | "ALL") => {
+        setStatus(v);
+        setPageNumber(0);
+    }, []);
+
+    const setViewModeAndReset = useCallback((v: ViewMode) => {
+        setViewMode(v);
+        setPageNumber(0);
+    }, []);
+
+    // IMPORTANT: server-side search => reset pagination when query changes
+    const setQueryAndReset = useCallback((v: string) => {
+        setQuery(v);
+        setPageNumber(0);
+    }, []);
+
     // Load current user (for admin-only "ALL" endpoints)
-    React.useEffect(() => {
+    useEffect(() => {
         let mounted = true;
         api.auth
             .me()
@@ -852,59 +860,52 @@ export default function UserTasksPage() {
         };
     }, []);
 
-    // If user isn't admin, force MY
-    React.useEffect(() => {
-        if (!canViewAll && viewMode === "ALL") setViewMode("MY");
+    // If user isn't admin, force MY (and reset page)
+    useEffect(() => {
+        if (!canViewAll && viewMode === "ALL") {
+            setViewMode("MY");
+            setPageNumber(0);
+        }
     }, [canViewAll, viewMode]);
 
-    const loadPage = useCallback(
-        async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode) => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data: Page<TaskDto> =
-                    nextViewMode === "ALL"
-                        ? nextStatus === "ALL"
-                            ? await api.tasks.getAllPaginated(nextPageNumber)
-                            : await api.tasks.getByStatusPaginated(nextStatus, nextPageNumber)
-                        : nextStatus === "ALL"
-                            ? await api.tasks.getMyTasksPaginated(nextPageNumber)
-                            : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus);
+    const effectiveViewMode: ViewMode = canViewAll ? viewMode : "MY";
 
-                setPageData(data);
-                totalPages = data.totalPages;
-                lastPage = data.last;
-                firstPage = data.first;
-                totalElements = data.totalElements;
-            } catch (e: any) {
-                setError(e?.message ?? "Failed to load tasks.");
-                setPageData(null);
-            } finally {
-                setIsLoading(false);
-            }
-        },
-        []
-    );
-    const loadPage = useCallback(async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode) => {
+    // keep deferred value (nice-to-have); server search uses this title
+    const deferredQuery = React.useDeferredValue(query);
+    const titleFilter = deferredQuery.trim(); // server-side title search
+
+    const loadPage = useCallback(async (nextPageNumber: number, nextStatus: TaskStatus | "ALL", nextViewMode: ViewMode, nextTitle: string) => {
         setError(null);
 
         if (hasLoadedOnceRef.current) setIsFetching(true);
         else setIsInitialLoading(true);
 
         try {
-            const data: Page<TaskDto> =
+            const hasTitle = !!nextTitle.trim();
+            const safeTitle = hasTitle ? encodeURIComponent(nextTitle.trim()) : "";
+
+            const data: Page<TaskDto> = hasTitle
+                ? // SERVER-SIDE SEARCH (title endpoints) + pagination
+                nextViewMode === "ALL"
+                    ? nextStatus === "ALL"
+                        ? await api.tasks.getAllByTitlePaginated(safeTitle, nextPageNumber)
+                        : await api.tasks.getAllByTitleAndStatusPaginated(safeTitle, nextStatus as TaskStatus, nextPageNumber)
+                    : nextStatus === "ALL"
+                        ? await api.tasks.getMyTasksByTitlePaginated(safeTitle, nextPageNumber)
+                        : await api.tasks.getMyTasksByTitleAndStatusPaginated(safeTitle, nextStatus as TaskStatus, nextPageNumber)
+                : // NO SEARCH: existing paginated endpoints
                 nextViewMode === "ALL"
                     ? nextStatus === "ALL"
                         ? await api.tasks.getAllPaginated(nextPageNumber)
-                        : await api.tasks.getByStatusPaginated(nextStatus, nextPageNumber)
+                        : await api.tasks.getByStatusPaginated(nextStatus as TaskStatus, nextPageNumber)
                     : nextStatus === "ALL"
                         ? await api.tasks.getMyTasksPaginated(nextPageNumber)
-                        : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus);
+                        : await api.tasks.getMyTasksByStatusPaginated(nextPageNumber, nextStatus as TaskStatus);
 
             setPageData(data);
             hasLoadedOnceRef.current = true;
         } catch (e: any) {
-            // IMPORTANT: don't setPageData(null) here -> keep old data to prevent flicker
+            // keep old pageData to prevent flicker
             setError(e?.message ?? "Failed to load tasks.");
         } finally {
             setIsInitialLoading(false);
@@ -912,71 +913,24 @@ export default function UserTasksPage() {
         }
     }, []);
 
-    // Reload on view/status/page changes
-    React.useEffect(() => {
-        loadPage(pageNumber, status, viewMode);
-    }, [loadPage, pageNumber, status, viewMode]);
-
-    // Reset pagination when switching status/view
-    React.useEffect(() => {
-        setPageNumber(0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, viewMode]);
+    // Reload on view/status/page/search changes
+    useEffect(() => {
+        loadPage(pageNumber, status, effectiveViewMode, titleFilter);
+    }, [loadPage, pageNumber, status, effectiveViewMode, titleFilter]);
 
     const serverTasks = pageData?.content ?? [];
 
-    const [filtered, setFiltered] = useState<TaskDto[]>([]);
-    
-    useEffect(() => {
-        let active = true;
-        const loadFiltered = async () => {
-            try {
-                let data;
-                if (status === "ALL" && query) {
-                    data = await api.tasks.getMyTasksByTitlePaginated(query, pageNumber);
-                } else if (status !== "ALL" && query) {
-                    data = await api.tasks.getMyTasksByTitleAndStatusPaginated(query, status, pageNumber);
-                } else {
-                    data = pageData;
-                }
-                if (active && data) {
-                    setFiltered(data.content || []);
-                    totalPages = data.totalPages;
-                    lastPage = data.last;
-                    firstPage = data.first;
-                    totalElements = data.totalElements;
-                }
-            } catch (err) {}
-        };
-        loadFiltered();
-        return () => {
-            active = false;
-        };
-    }, [query, status, pageNumber, pageData])
-
-    // const filtered = useMemo(() => {
-    //     const q = query.trim().toLowerCase();
-    //     let list = serverTasks;
-    //     if (q) {
-    //         list = list.filter((t) => (`${t.title} ?? ""}`).toLowerCase().includes(q));
-    //     }
-
-    //     return sortTasks(list, sortKey);
-    // }, [serverTasks, query, sortKey]);
-    const deferredQuery = React.useDeferredValue(query);
-
-    const filtered = useMemo(() => {
-        const q = deferredQuery.trim().toLowerCase();
-        let list = serverTasks;
-        if (q) list = list.filter((t) => (`${t.title} ${t.description ?? ""}`).toLowerCase().includes(q));
-        return sortTasks(list, sortKey);
-    }, [serverTasks, deferredQuery, sortKey]);
+    // With server-side search, just sort client-side (optional)
+    const visibleTasks = useMemo(() => {
+        return sortTasks(serverTasks, sortKey);
+    }, [serverTasks, sortKey]);
 
     const refresh = useCallback(async () => {
-        await loadPage(pageNumber, status, viewMode);
-    }, [loadPage, pageNumber, status, viewMode]);
+        await loadPage(pageNumber, status, effectiveViewMode, titleFilter);
+    }, [loadPage, pageNumber, status, effectiveViewMode, titleFilter]);
 
     const openDetails = useCallback(async (t: TaskDto) => {
+        if (!t?.id) return;
         setSelected(t);
         setDetailsOpen(true);
 
@@ -1040,14 +994,13 @@ export default function UserTasksPage() {
         [refresh, selected]
     );
 
-    // open confirm dialog instead of window.confirm
     const requestDelete = useCallback((t: TaskDto) => {
         setDeleteTarget(t);
         setDeleteOpen(true);
     }, []);
 
     const confirmDelete = useCallback(async () => {
-        if (!deleteTarget) return;
+        if (!deleteTarget?.id) return;
 
         setIsSaving(true);
         try {
@@ -1059,7 +1012,7 @@ export default function UserTasksPage() {
                 setSelected(null);
             }
 
-            await loadPage(pageNumber, status, viewMode);
+            await loadPage(pageNumber, status, effectiveViewMode, titleFilter);
 
             const before = pageData?.content?.length ?? 0;
             if (before <= 1 && pageNumber > 0) {
@@ -1073,12 +1026,15 @@ export default function UserTasksPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [deleteTarget, loadPage, pageNumber, pageData?.content?.length, selected?.id, status, viewMode]);
+    }, [deleteTarget, effectiveViewMode, loadPage, pageNumber, pageData?.content?.length, selected?.id, status, titleFilter]);
 
     const updateStatus = useCallback(
         async (taskId: number, nextStatus: TaskStatus) => {
             const current = selected && selected.id === taskId ? selected : serverTasks.find((x) => x.id === taskId);
-            if (!current) return;
+            if (!current?.title) {
+                toast.error("Can't update: missing task title.");
+                return;
+            }
 
             const dto: CreateTaskDto = {
                 title: current.title,
@@ -1108,18 +1064,17 @@ export default function UserTasksPage() {
     );
 
     const handleResetFilters = useCallback(() => {
-        setQuery("");
-        setStatus("ALL");
+        setQueryAndReset("");
+        setStatusAndReset("ALL");
         setSortKey("recent");
-        setPageNumber(0);
         toast.message("Filters reset");
-    }, []);
+    }, [setQueryAndReset, setStatusAndReset]);
 
     return (
         <TooltipProvider delayDuration={200}>
             <div className="mx-auto w-full max-w-6xl px-4 py-2">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight">{viewMode === "ALL" ? "All Tasks" : "My Tasks"}</h1>
+                    <h1 className="text-3xl font-bold tracking-tight">{effectiveViewMode === "ALL" ? "All Tasks" : "My Tasks"}</h1>
                     <p className="text-muted-foreground">Manage and track the progress of your projects.</p>
                 </div>
 
@@ -1135,7 +1090,7 @@ export default function UserTasksPage() {
                                     <div className="text-xs text-muted-foreground">Filter by status</div>
                                 </div>
 
-                                <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-full sm:w-fit">
+                                <Tabs value={status} onValueChange={(v) => setStatusAndReset(v as any)} className="w-full sm:w-fit">
                                     <TabsList className="w-full sm:w-fit justify-start h-11 px-1 overflow-x-auto whitespace-nowrap">
                                         <TabsTrigger value="ALL" className="min-w-[72px] h-9">
                                             All
@@ -1159,62 +1114,26 @@ export default function UserTasksPage() {
                             <div className="mb-6">
                                 <TaskToolbar
                                     query={query}
-                                    setQuery={setQuery}
+                                    setQuery={setQueryAndReset}
                                     status={status}
-                                    setStatus={setStatus}
+                                    setStatus={setStatusAndReset}
                                     sortKey={sortKey}
                                     setSortKey={setSortKey}
-                                    viewMode={viewMode}
-                                    setViewMode={setViewMode}
-                                    canViewAll={canViewAll}
+                                    viewMode={effectiveViewMode}
+                                    setViewMode={setViewModeAndReset}
+                                    canViewAll={!!canViewAll}
                                     showStatusTabs={false}
                                     rightSlot={
                                         <div className="flex items-center gap-2">
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="icon"
-                                                        className="h-10 w-10"
-                                                        onClick={handleResetFilters}
-                                                        disabled={isInitialLoading}
-                                                    >
+                                                    <Button variant="outline" size="icon" className="h-10 w-10" onClick={handleResetFilters} disabled={isLoading}>
                                                         <RotateCcw className="h-4 w-4" />
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>Reset Filters</TooltipContent>
                                             </Tooltip>
 
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
-                            <div className="text-sm text-muted-foreground">
-                                {pageData ? (
-                                    <>
-                                        Page <span className="font-medium text-foreground">{pageData.number + 1}</span> of{" "}
-                                        <span className="font-medium text-foreground">{totalPages!}</span> •{" "}
-                                        <span className="font-medium text-foreground">{totalElements!}</span> total
-                                    </>
-                                ) : (
-                                    "—"
-                                )}
-                            </div>
-
-                            <div className="flex items-center justify-end gap-3">
-                                <Button
-                                    variant="outline"
-                                    className="h-9 px-4"
-                                    disabled={!pageData || firstPage! || isLoading}
-                                    onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
-                                >
-                                    Previous
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-9 px-4"
-                                    disabled={!pageData || lastPage! || isLoading}
-                                    onClick={() => setPageNumber((p) => p + 1)}
-                                >
-                                    Next
-                                </Button>
                                             <Button
                                                 variant="default"
                                                 className="h-10 px-4"
@@ -1241,14 +1160,14 @@ export default function UserTasksPage() {
 
                             {isInitialLoading ? (
                                 <TaskSkeleton />
-                            ) : filtered.length === 0 ? (
+                            ) : visibleTasks.length === 0 ? (
                                 <EmptyState
-                                    title={query.trim() ? "No matches on this page" : "No tasks found"}
-                                    hint={query.trim() ? "Try a different search, switch pages, or clear filters." : "Create your first task to get started."}
+                                    title={query.trim() ? `No tasks match “${query.trim()}”` : "No tasks found"}
+                                    hint={query.trim() ? "Try a different search, clear filters, or switch status." : "Create your first task to get started."}
                                 />
                             ) : (
                                 <TaskList
-                                    tasks={filtered}
+                                    tasks={visibleTasks}
                                     onOpenTask={openDetails}
                                     onEdit={(t) => {
                                         setFormMode("edit");
@@ -1263,6 +1182,7 @@ export default function UserTasksPage() {
 
                             <Separator className="my-6" />
 
+                            {/* Pagination footer */}
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
                                 <div className="text-sm text-muted-foreground">
                                     {pageData ? (
@@ -1280,21 +1200,19 @@ export default function UserTasksPage() {
                                     <Button
                                         variant="outline"
                                         className="h-9 px-4"
-                                        disabled={!pageData || pageData.first || isInitialLoading}
+                                        disabled={!pageData || pageData.first || isLoading}
                                         onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
                                     >
-                                        {isInitialLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Previous
                                     </Button>
 
                                     <Button
                                         variant="outline"
                                         className="h-9 px-4"
-                                        disabled={!pageData || pageData.last || isInitialLoading}
+                                        disabled={!pageData || pageData.last || isLoading}
                                         onClick={() => setPageNumber((p) => p + 1)}
                                     >
                                         Next
-                                        {isInitialLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                                     </Button>
                                 </div>
                             </div>

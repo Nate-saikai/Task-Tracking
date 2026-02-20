@@ -35,8 +35,6 @@ export const api = {
         findAll: () => http.get<PersonDto[]>(`${PERSON_BASE}/all`).then(r => r.data),
         findAllPaginated: (pageNumber: number) =>
             http.get<Page<PersonDto>>(`${PERSON_BASE}/paginated/${pageNumber}`).then(r => r.data),
-
-        // optional (from your PersonController)
         login: (body: LoginPersonDto) => http.post<PersonDto>(`${PERSON_BASE}/login`, body).then(r => r.data),
         addAdmin: (body: CreatePersonDto) => http.post<PersonDto>(`${PERSON_BASE}/add-admin`, body).then(r => r.data),
         registerUser: (body: CreatePersonDto) =>

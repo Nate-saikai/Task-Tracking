@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // API + types
 import { api, type Page } from "@/api/api";
@@ -14,24 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 // icons
-import {
-    CheckCircle2,
-    Circle,
-    Clock3,
-    Eye,
-    Search,
-    User2,
-    RotateCcw,
-    Loader2,
-} from "lucide-react";
+import { CheckCircle2, Circle, Clock3, Eye, Search, User2, RotateCcw, Loader2 } from "lucide-react";
 
 type SortKey = "id" | "title";
 type BadgeVariant = React.ComponentProps<typeof Badge>["variant"];
@@ -42,8 +32,6 @@ const statusMeta: Record<Status, { label: string; icon: React.ReactNode; badge: 
     COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
 
-let totalPages;
-let lastPage;
 function FetchingBar({ show }: { show: boolean }) {
     if (!show) return null;
     return (
@@ -154,9 +142,7 @@ function TaskDetailsSheet({
                         <div className="mt-8 space-y-6">
                             <div className="bg-muted/30 rounded-lg p-4">
                                 {task.description ? (
-                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">
-                                        {task.description}
-                                    </p>
+                                    <p className="whitespace-pre-wrap text-foreground/90 leading-relaxed text-sm">{task.description}</p>
                                 ) : (
                                     <p className="text-muted-foreground text-sm italic">No description provided.</p>
                                 )}
@@ -203,18 +189,36 @@ export default function AdminTasksPage() {
 
     const hasLoadedOnceRef = React.useRef(false);
 
+    // Reset to page 0 whenever the "dataset" changes
+    useEffect(() => {
+        setPageNumber(0);
+    }, [status, query]);
+
     const loadTasks = useCallback(async () => {
         if (hasLoadedOnceRef.current) setIsFetching(true);
         else setIsInitialLoading(true);
 
         setError(null);
+
+        const q = query.trim();
         try {
-            const data = status === "ALL"
-                ? await api.tasks.getAllPaginated(pageNumber)
-                : await api.tasks.getByStatusPaginated(status, pageNumber);
+            let data: Page<TaskDto>;
+
+            const isSearching = q.length > 0;
+
+            if (isSearching) {
+                data =
+                    status === "ALL"
+                        ? await api.tasks.getAllByTitlePaginated(q, pageNumber)
+                        : await api.tasks.getAllByTitleAndStatusPaginated(q, status, pageNumber);
+            } else {
+                data =
+                    status === "ALL"
+                        ? await api.tasks.getAllPaginated(pageNumber)
+                        : await api.tasks.getByStatusPaginated(status, pageNumber);
+            }
+
             setPageData(data);
-            totalPages = data.totalPages;
-            lastPage = data.last;
             hasLoadedOnceRef.current = true;
         } catch (err: any) {
             setError(err.message || "Failed to load tasks.");
@@ -222,15 +226,11 @@ export default function AdminTasksPage() {
             setIsInitialLoading(false);
             setIsFetching(false);
         }
-    }, [pageNumber, status]);
+    }, [pageNumber, status, query]);
 
     useEffect(() => {
         loadTasks();
     }, [loadTasks]);
-
-    useEffect(() => {
-        setPageNumber(0);
-    }, [status]);
 
     const openDetails = useCallback(async (t: TaskDto) => {
         setSelected(t);
@@ -239,47 +239,21 @@ export default function AdminTasksPage() {
         try {
             const fresh = await api.tasks.getById(t.id);
             setSelected(fresh);
-        } catch { /* ignore */ }
-        finally { setDetailsLoading(false); }
+        } catch {
+            /* ignore */
+        } finally {
+            setDetailsLoading(false);
+        }
     }, []);
 
-    const [filtered, setFiltered] = useState<TaskDto[]>([]);
-
-    useEffect(() => {
-        let active = true;
-        const loadFiltered = async () => {
-            try {
-                let data;
-                if (status === "ALL" && query) {
-                    data = await api.tasks.getAllByTitlePaginated(query, pageNumber);
-                } else if (status !== "ALL" && query) {
-                    data = await api.tasks.getAllByTitleAndStatusPaginated(query, status, pageNumber);
-                } else {
-                    data = pageData;
-                }
-                if (active && data) {
-                    setFiltered(data.content || []);
-                    totalPages = data.totalPages;
-                    lastPage = data.last;
-                }
-            } catch (err) {}
-        };
-        loadFiltered();
-        return () => {
-            active = false;
-        };
-    }, [query, status, pageNumber, pageData])
-
-    // const filtered = useMemo(() => {
-    //     const list = pageData?.content || [];
-    //     const q = query.trim().toLowerCase();
-    //     let result = q ? list.filter(t => t.title.toLowerCase().includes(q)) : list;
-
-    //     return [...result].sort((a, b) => {
-    //         if (sortKey === "title") return a.title.localeCompare(b.title);
-    //         return b.id - a.id;
-    //     });
-    // }, [pageData, query, sortKey]);
+    const rows = useMemo(() => {
+        const list = pageData?.content || [];
+        const sorted = [...list].sort((a, b) => {
+            if (sortKey === "title") return a.title.localeCompare(b.title);
+            return b.id - a.id; // newest first
+        });
+        return sorted;
+    }, [pageData, sortKey]);
 
     const handleReset = () => {
         setQuery("");
@@ -287,6 +261,10 @@ export default function AdminTasksPage() {
         setSortKey("id");
         setPageNumber(0);
     };
+
+    const currentPage = (pageData?.number ?? pageNumber) + 1;
+    const totalPages = pageData?.totalPages ?? 1;
+    const isLastPage = pageData?.last ?? true;
 
     return (
         <TooltipProvider delayDuration={200}>
@@ -310,10 +288,18 @@ export default function AdminTasksPage() {
 
                                 <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-full sm:w-fit">
                                     <TabsList className="w-full sm:w-fit h-11 px-1">
-                                        <TabsTrigger value="ALL" className="min-w-[72px] h-9">All</TabsTrigger>
-                                        <TabsTrigger value="TO_DO" className="h-9 px-4">To do</TabsTrigger>
-                                        <TabsTrigger value="IN_PROGRESS" className="h-9 px-4">In progress</TabsTrigger>
-                                        <TabsTrigger value="COMPLETED" className="h-9 px-4">Completed</TabsTrigger>
+                                        <TabsTrigger value="ALL" className="min-w-[72px] h-9">
+                                            All
+                                        </TabsTrigger>
+                                        <TabsTrigger value="TO_DO" className="h-9 px-4">
+                                            To do
+                                        </TabsTrigger>
+                                        <TabsTrigger value="IN_PROGRESS" className="h-9 px-4">
+                                            In progress
+                                        </TabsTrigger>
+                                        <TabsTrigger value="COMPLETED" className="h-9 px-4">
+                                            Completed
+                                        </TabsTrigger>
                                     </TabsList>
                                 </Tabs>
                             </div>
@@ -322,8 +308,10 @@ export default function AdminTasksPage() {
                         <div className="p-4 sm:p-6">
                             <div className="mb-6">
                                 <TaskToolbar
-                                    query={query} setQuery={setQuery}
-                                    sortKey={sortKey} setSortKey={setSortKey}
+                                    query={query}
+                                    setQuery={setQuery}
+                                    sortKey={sortKey}
+                                    setSortKey={setSortKey}
                                     rightSlot={
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -339,13 +327,17 @@ export default function AdminTasksPage() {
 
                             <Separator className="mb-6" />
 
-                            {error && <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div>}
+                            {error && (
+                                <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                                    {error}
+                                </div>
+                            )}
 
                             <FetchingBar show={isFetching && !!pageData} />
 
                             {isInitialLoading ? (
                                 <TaskSkeleton />
-                            ) : filtered.length === 0 ? (
+                            ) : rows.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed p-14 text-center bg-muted/20">
                                     <div className="text-lg font-medium text-muted-foreground">No tasks matching your filters</div>
                                 </div>
@@ -361,7 +353,7 @@ export default function AdminTasksPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {filtered.map(t => {
+                                            {rows.map((t) => {
                                                 const s = statusMeta[t.trackingStatus as Status];
                                                 return (
                                                     <TableRow
@@ -386,7 +378,15 @@ export default function AdminTasksPage() {
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="py-4 text-right">
-                                                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openDetails(t);
+                                                                }}
+                                                            >
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </TableCell>
@@ -398,58 +398,43 @@ export default function AdminTasksPage() {
                                 </div>
                             )}
 
-                                <div className="flex items-center justify-between mt-4">
-                                    <p className="text-sm text-muted-foreground">
-                                        Page {pageNumber + 1} of {totalPages! || 1}
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline" size="sm"
-                                            disabled={pageNumber === 0}
-                                            onClick={() => setPageNumber(p => p - 1)}
-                                        >
-                                            Prev
-                                        </Button>
-                                        <Button
-                                            variant="outline" size="sm"
-                                            disabled={lastPage!}
-                                            onClick={() => setPageNumber(p => p + 1)}
-                                        >
-                                            Next
-                                        </Button>
-                                    </div>
                             {/* Mobile list view logic could go here, matching UserTasksPage cards */}
 
                             <Separator className="my-6" />
 
+                            {/* ✅ Single pagination UI shared by ALL paginated endpoints (all / status / search) */}
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-2">
                                 <div className="text-sm text-muted-foreground">
                                     {pageData ? (
                                         <>
-                                            Page <span className="font-medium text-foreground">{pageData.number + 1}</span> of{" "}
-                                            <span className="font-medium text-foreground">{pageData.totalPages}</span> •{" "}
+                                            Page <span className="font-medium text-foreground">{currentPage}</span> of{" "}
+                                            <span className="font-medium text-foreground">{totalPages}</span> •{" "}
                                             <span className="font-medium text-foreground">{pageData.totalElements}</span> total
                                         </>
-                                    ) : "—"}
+                                    ) : (
+                                        "—"
+                                    )}
                                 </div>
+
                                 <div className="flex items-center justify-end gap-3">
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        disabled={pageNumber === 0 || isInitialLoading}
-                                        onClick={() => setPageNumber(p => p - 1)}
+                                        disabled={currentPage <= 1 || isInitialLoading || isFetching}
+                                        onClick={() => setPageNumber((p) => Math.max(0, p - 1))}
                                     >
-                                        {isInitialLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {(isInitialLoading || isFetching) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Previous
                                     </Button>
+
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        disabled={pageData?.last || isInitialLoading}
-                                        onClick={() => setPageNumber(p => p + 1)}
+                                        disabled={isLastPage || isInitialLoading || isFetching}
+                                        onClick={() => setPageNumber((p) => p + 1)}
                                     >
                                         Next
-                                        {isInitialLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                                        {(isInitialLoading || isFetching) && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                                     </Button>
                                 </div>
                             </div>
