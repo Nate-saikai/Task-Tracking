@@ -1,5 +1,10 @@
 import * as React from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
+
+// API + types
+import { api, type Page } from "@/api/api";
+import type { TaskDto, CreateTaskDto } from "@/api/types/Task";
+import type { Status } from "@/api/types/Status";
 
 // shadcn/ui
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +25,6 @@ import { cn } from "@/lib/utils";
 
 // icons
 import {
-    AlertTriangle,
-    Calendar,
     CheckCircle2,
     Circle,
     Clock3,
@@ -31,92 +34,30 @@ import {
     User2,
 } from "lucide-react";
 
-/**
- * NOTE:
- * - Adjust "@/..." import aliases to your project structure if needed.
- * - Replace the hook stub (useAdminTasks) with your real data + mutations.
- */
-
-type TaskStatus = "TODO" | "IN_PROGRESS" | "DONE" | "BLOCKED";
-type TaskPriority = "LOW" | "MEDIUM" | "HIGH";
-
-export type Task = {
-    id: string;
-    title: string;
-    description?: string | null;
-    status: TaskStatus;
-    priority: TaskPriority;
-    assigneeName?: string | null;
-    dueDate?: string | null; // ISO
-    updatedAt?: string | null; // ISO
-    createdAt?: string | null; // ISO
-};
-
-type SortKey = "updatedAt" | "dueDate" | "priority";
+type SortKey = "id" | "title";
 
 const statusMeta: Record<
-    TaskStatus,
-    { label: string; icon: React.ReactNode; badge: "secondary" | "default" | "destructive" | "outline" }
+    Status,
+    { label: string; icon: React.ReactNode; badge: "secondary" | "outline" | "secondary" }
 > = {
-    TODO: { label: "To do", icon: <Circle className="h-4 w-4" />, badge: "outline" },
+    TO_DO: { label: "To do", icon: <Circle className="h-4 w-4" />, badge: "outline" },
     IN_PROGRESS: { label: "In progress", icon: <Clock3 className="h-4 w-4" />, badge: "secondary" },
-    DONE: { label: "Done", icon: <CheckCircle2 className="h-4 w-4" />, badge: "default" },
-    BLOCKED: { label: "Blocked", icon: <AlertTriangle className="h-4 w-4" />, badge: "destructive" },
+    COMPLETED: { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" />, badge: "secondary" },
 };
-
-const priorityMeta: Record<TaskPriority, { label: string; className: string }> = {
-    LOW: { label: "Low", className: "text-muted-foreground" },
-    MEDIUM: { label: "Medium", className: "text-foreground" },
-    HIGH: { label: "High", className: "text-foreground font-medium" },
-};
-
-function formatDate(iso?: string | null) {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "—";
-    return new Intl.DateTimeFormat(undefined, { month: "short", day: "2-digit", year: "numeric" }).format(d);
-}
-
-function sortTasks(tasks: Task[], sortKey: SortKey) {
-    const copy = [...tasks];
-    const priorityRank: Record<TaskPriority, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-
-    copy.sort((a, b) => {
-        if (sortKey === "priority") return priorityRank[b.priority] - priorityRank[a.priority];
-
-        if (sortKey === "dueDate") {
-            const at = a.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
-            const bt = b.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
-            return at - bt;
-        }
-
-        const at = a.updatedAt ?? a.createdAt;
-        const bt = b.updatedAt ?? b.createdAt;
-        const aTime = at ? new Date(at).getTime() : 0;
-        const bTime = bt ? new Date(bt).getTime() : 0;
-        return bTime - aTime;
-    });
-
-    return copy;
-}
 
 function TaskToolbar({
     query,
     setQuery,
     status,
     setStatus,
-    priority,
-    setPriority,
     sortKey,
     setSortKey,
     rightSlot,
 }: {
     query: string;
     setQuery: (v: string) => void;
-    status: TaskStatus | "ALL";
-    setStatus: (v: TaskStatus | "ALL") => void;
-    priority: TaskPriority | "ALL";
-    setPriority: (v: TaskPriority | "ALL") => void;
+    status: Status | "ALL";
+    setStatus: (v: Status | "ALL") => void;
     sortKey: SortKey;
     setSortKey: (v: SortKey) => void;
     rightSlot?: React.ReactNode;
@@ -130,29 +71,15 @@ function TaskToolbar({
                 </div>
 
                 <div className="hidden items-center gap-2 md:flex">
-                    <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
-                        <SelectTrigger className="w-[160px]">
-                            <SelectValue placeholder="Priority" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="ALL">All priorities</SelectItem>
-                            <SelectItem value="HIGH">High</SelectItem>
-                            <SelectItem value="MEDIUM">Medium</SelectItem>
-                            <SelectItem value="LOW">Low</SelectItem>
-                        </SelectContent>
-                    </Select>
-
                     <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
                         <SelectTrigger className="w-[170px]">
                             <SelectValue placeholder="Sort" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="updatedAt">Recently updated</SelectItem>
-                            <SelectItem value="dueDate">Due date</SelectItem>
-                            <SelectItem value="priority">Priority</SelectItem>
+                            <SelectItem value="id">Newest (ID)</SelectItem>
+                            <SelectItem value="title">Title (A-Z)</SelectItem>
                         </SelectContent>
                     </Select>
-
                     {rightSlot}
                 </div>
             </div>
@@ -160,16 +87,12 @@ function TaskToolbar({
             <div className="flex items-center justify-between gap-3">
                 <Tabs value={status} onValueChange={(v) => setStatus(v as any)} className="w-full">
                     <TabsList className="w-full justify-start">
-                        <TabsTrigger value="ALL" className="min-w-[72px]">
-                            All
-                        </TabsTrigger>
-                        <TabsTrigger value="TODO">To do</TabsTrigger>
+                        <TabsTrigger value="ALL" className="min-w-[72px]">All</TabsTrigger>
+                        <TabsTrigger value="TO_DO">To do</TabsTrigger>
                         <TabsTrigger value="IN_PROGRESS">In progress</TabsTrigger>
-                        <TabsTrigger value="DONE">Done</TabsTrigger>
-                        <TabsTrigger value="BLOCKED">Blocked</TabsTrigger>
+                        <TabsTrigger value="COMPLETED">Completed</TabsTrigger>
                     </TabsList>
                 </Tabs>
-
                 <div className="flex items-center gap-2 md:hidden">{rightSlot}</div>
             </div>
         </div>
@@ -216,10 +139,10 @@ function TaskDetailsSheet({
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    task: Task | null;
+    task: TaskDto | null;
 }) {
     if (!task) return null;
-    const s = statusMeta[task.status];
+    const s = statusMeta[task.trackingStatus as Status];
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -231,9 +154,6 @@ function TaskDetailsSheet({
                             {s.icon}
                             {s.label}
                         </Badge>
-                        <span className={cn("text-xs", priorityMeta[task.priority].className)}>
-                            {priorityMeta[task.priority].label} priority
-                        </span>
                     </SheetDescription>
                 </SheetHeader>
 
@@ -243,167 +163,19 @@ function TaskDetailsSheet({
                     ) : (
                         <p className="text-muted-foreground">No description.</p>
                     )}
-
                     <Separator />
-
                     <div className="grid gap-3">
                         <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2 text-muted-foreground">
                                 <User2 className="h-4 w-4" />
-                                Assignee
+                                Owner ID
                             </div>
-                            <div className="truncate">{task.assigneeName ?? "Unassigned"}</div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="h-4 w-4" />
-                                Due
-                            </div>
-                            <div>{formatDate(task.dueDate)}</div>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="text-muted-foreground">Updated</div>
-                            <div>{formatDate(task.updatedAt ?? task.createdAt)}</div>
+                            <div className="truncate">{task.userId}</div>
                         </div>
                     </div>
                 </div>
             </SheetContent>
         </Sheet>
-    );
-}
-
-function TaskList({
-    tasks,
-    onOpenTask,
-    onEdit,
-    onAssign,
-    onDelete,
-}: {
-    tasks: Task[];
-    onOpenTask: (t: Task) => void;
-    onEdit: (t: Task) => void;
-    onAssign: (t: Task) => void;
-    onDelete: (t: Task) => void;
-}) {
-    return (
-        <div className="space-y-2">
-            {/* Mobile cards */}
-            <div className="grid gap-2 md:hidden">
-                {tasks.map((t) => {
-                    const s = statusMeta[t.status];
-                    return (
-                        <button
-                            key={t.id}
-                            onClick={() => onOpenTask(t)}
-                            className="w-full rounded-xl border bg-card p-3 text-left shadow-sm transition hover:bg-accent/30 focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="truncate font-medium">{t.title}</div>
-                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                        <Badge variant={s.badge} className="gap-1">
-                                            {s.icon}
-                                            {s.label}
-                                        </Badge>
-                                        <span className={priorityMeta[t.priority].className}>{priorityMeta[t.priority].label}</span>
-                                        <span>Due {formatDate(t.dueDate)}</span>
-                                        <span>•</span>
-                                        <span className="truncate">Assignee: {t.assigneeName ?? "Unassigned"}</span>
-                                    </div>
-                                </div>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => onOpenTask(t)}>View</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => onEdit(t)}>Edit</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => onAssign(t)}>Assign</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-destructive" onClick={() => onDelete(t)}>
-                                            Delete
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden overflow-hidden rounded-xl border md:block">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-muted/40">
-                            <TableHead className="w-[42%]">Task</TableHead>
-                            <TableHead className="w-[18%]">Assignee</TableHead>
-                            <TableHead className="w-[16%]">Status</TableHead>
-                            <TableHead className="w-[12%]">Priority</TableHead>
-                            <TableHead className="w-[10%]">Due</TableHead>
-                            <TableHead className="w-[2%]" />
-                        </TableRow>
-                    </TableHeader>
-
-                    <TableBody>
-                        {tasks.map((t) => {
-                            const s = statusMeta[t.status];
-                            return (
-                                <TableRow key={t.id} className="cursor-pointer hover:bg-accent/30" onClick={() => onOpenTask(t)}>
-                                    <TableCell className="py-3">
-                                        <div className="space-y-1">
-                                            <div className="font-medium leading-tight">{t.title}</div>
-                                            <div className="truncate text-xs text-muted-foreground max-w-[560px]">
-                                                {t.description || "No description"}
-                                            </div>
-                                        </div>
-                                    </TableCell>
-
-                                    <TableCell className="text-sm text-muted-foreground">{t.assigneeName ?? "Unassigned"}</TableCell>
-
-                                    <TableCell>
-                                        <Badge variant={s.badge} className="gap-1">
-                                            {s.icon}
-                                            {s.label}
-                                        </Badge>
-                                    </TableCell>
-
-                                    <TableCell className={cn("text-sm", priorityMeta[t.priority].className)}>
-                                        {priorityMeta[t.priority].label}
-                                    </TableCell>
-
-                                    <TableCell className="text-sm text-muted-foreground">{formatDate(t.dueDate)}</TableCell>
-
-                                    <TableCell onClick={(e) => e.stopPropagation()}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => onOpenTask(t)}>View</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => onEdit(t)}>Edit</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => onAssign(t)}>Assign</DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-destructive" onClick={() => onDelete(t)}>
-                                                    Delete
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-            </div>
-        </div>
     );
 }
 
@@ -416,22 +188,18 @@ function TaskEditorDialog({
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    initial?: Partial<Task> | null;
-    onSave: (payload: { title: string; description?: string; priority: TaskPriority; dueDate?: string | null }) => Promise<void> | void;
+    initial?: Partial<TaskDto> | null;
+    onSave: (payload: { title: string; description?: string }) => Promise<void> | void;
     title: string;
 }) {
     const [taskTitle, setTaskTitle] = useState(initial?.title ?? "");
     const [desc, setDesc] = useState(initial?.description ?? "");
-    const [priority, setPriority] = useState<TaskPriority>((initial?.priority as TaskPriority) ?? "MEDIUM");
-    const [dueDate, setDueDate] = useState<string>(initial?.dueDate?.slice(0, 10) ?? "");
     const [saving, setSaving] = useState(false);
 
     React.useEffect(() => {
         if (open) {
             setTaskTitle(initial?.title ?? "");
             setDesc(initial?.description ?? "");
-            setPriority((initial?.priority as TaskPriority) ?? "MEDIUM");
-            setDueDate(initial?.dueDate?.slice(0, 10) ?? "");
             setSaving(false);
         }
     }, [open, initial]);
@@ -441,7 +209,7 @@ function TaskEditorDialog({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>Short, clear, actionable.</DialogDescription>
+                    <DialogDescription>Provide task details below.</DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -451,8 +219,8 @@ function TaskEditorDialog({
                             id="taskTitle"
                             value={taskTitle}
                             onChange={(e) => setTaskTitle(e.target.value)}
-                            placeholder="e.g. Review weekly report"
-                            minLength={3}
+                            placeholder="e.g. Audit security logs"
+                            disabled={saving}
                         />
                     </div>
 
@@ -462,34 +230,14 @@ function TaskEditorDialog({
                             id="taskDesc"
                             value={desc}
                             onChange={(e) => setDesc(e.target.value)}
-                            placeholder="Optional. Add context, acceptance criteria, or links."
+                            placeholder="Add context or links."
                             className="min-h-[96px]"
+                            disabled={saving}
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label>Priority</Label>
-                            <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="HIGH">High</SelectItem>
-                                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                                    <SelectItem value="LOW">Low</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Due date</Label>
-                            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-                        </div>
-                    </div>
-
                     <div className="flex justify-end gap-2">
-                        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                        <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
                             Cancel
                         </Button>
                         <Button
@@ -499,8 +247,6 @@ function TaskEditorDialog({
                                     await onSave({
                                         title: taskTitle.trim(),
                                         description: desc.trim() || undefined,
-                                        priority,
-                                        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
                                     });
                                     onOpenChange(false);
                                 } finally {
@@ -518,107 +264,87 @@ function TaskEditorDialog({
     );
 }
 
-/** Replace with your real hook */
-function useAdminTasks(): {
-    tasks: Task[];
-    isLoading: boolean;
-    error: string | null;
-    createTask: (payload: { title: string; description?: string; priority: TaskPriority; dueDate?: string | null }) => Promise<void>;
-    updateTask: (taskId: string, payload: { title: string; description?: string; priority: TaskPriority; dueDate?: string | null }) => Promise<void>;
-    deleteTask: (taskId: string) => Promise<void>;
-    // optionally: assignTask(taskId, userId)
-} {
-    const tasks: Task[] = [
-        {
-            id: "t1",
-            title: "Audit overdue tasks",
-            description: "Review tasks past due date and notify assignees.",
-            status: "IN_PROGRESS",
-            priority: "HIGH",
-            assigneeName: "Juan",
-            dueDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-            updatedAt: new Date().toISOString(),
-        },
-        {
-            id: "t2",
-            title: "Finalize sprint board",
-            description: "Confirm priorities with stakeholders.",
-            status: "TODO",
-            priority: "MEDIUM",
-            assigneeName: null,
-            dueDate: new Date(Date.now() + 86400000 * 5).toISOString(),
-            updatedAt: new Date().toISOString(),
-        },
-        {
-            id: "t3",
-            title: "Clean up task templates",
-            description: null,
-            status: "DONE",
-            priority: "LOW",
-            assigneeName: "Mia",
-            dueDate: null,
-            updatedAt: new Date().toISOString(),
-        },
-    ];
-
-    return {
-        tasks,
-        isLoading: false,
-        error: null,
-        createTask: async () => { },
-        updateTask: async () => { },
-        deleteTask: async () => { },
-    };
-}
-
 export default function AdminTasksPage() {
-    const { tasks, isLoading, error, createTask, updateTask, deleteTask } = useAdminTasks();
+    const [pageData, setPageData] = useState<Page<TaskDto> | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [pageNumber, setPageNumber] = useState(0);
 
     const [query, setQuery] = useState("");
-    const [status, setStatus] = useState<TaskStatus | "ALL">("ALL");
-    const [priority, setPriority] = useState<TaskPriority | "ALL">("ALL");
-    const [sortKey, setSortKey] = useState<SortKey>("updatedAt");
+    const [status, setStatus] = useState<Status | "ALL">("ALL");
+    const [sortKey, setSortKey] = useState<SortKey>("id");
 
-    const [selected, setSelected] = useState<Task | null>(null);
+    const [selected, setSelected] = useState<TaskDto | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
-
     const [editorOpen, setEditorOpen] = useState(false);
-    const [editing, setEditing] = useState<Task | null>(null);
+    const [editing, setEditing] = useState<TaskDto | null>(null);
+
+    const loadTasks = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = status === "ALL"
+                ? await api.tasks.getAllPaginated(pageNumber)
+                : await api.tasks.getByStatusPaginated(status, pageNumber);
+            setPageData(data);
+        } catch (err: any) {
+            setError(err.message || "Failed to load tasks.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, [pageNumber, status]);
+
+    useEffect(() => {
+        loadTasks();
+    }, [loadTasks]);
+
+    const handleSave = async (payload: { title: string; description?: string }) => {
+        const dto: CreateTaskDto = {
+            ...payload,
+            trackingStatus: editing?.trackingStatus || "TO_DO"
+        };
+        try {
+            if (editing) {
+                await api.tasks.update(editing.id, dto);
+            } else {
+                await api.tasks.create(dto);
+            }
+            loadTasks();
+        } catch (err: any) {
+            alert(err.message || "Save failed");
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm("Delete this task?")) return;
+        try {
+            await api.tasks.delete(id);
+            loadTasks();
+        } catch (err: any) {
+            alert(err.message || "Delete failed");
+        }
+    };
 
     const filtered = useMemo(() => {
+        const list = pageData?.content || [];
         const q = query.trim().toLowerCase();
-        let list = tasks;
+        let result = q ? list.filter(t => t.title.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q)) : list;
 
-        if (status !== "ALL") list = list.filter((t) => t.status === status);
-        if (priority !== "ALL") list = list.filter((t) => t.priority === priority);
-
-        if (q) {
-            list = list.filter((t) => {
-                const hay = `${t.title} ${t.description ?? ""} ${t.assigneeName ?? ""}`.toLowerCase();
-                return hay.includes(q);
-            });
-        }
-
-        return sortTasks(list, sortKey);
-    }, [tasks, query, status, priority, sortKey]);
+        return [...result].sort((a, b) => {
+            if (sortKey === "title") return a.title.localeCompare(b.title);
+            return b.id - a.id;
+        });
+    }, [pageData, query, sortKey]);
 
     return (
         <div className="mx-auto w-full max-w-6xl px-4 py-8">
             <div className="flex items-end justify-between gap-3">
                 <div className="space-y-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-                    <p className="text-sm text-muted-foreground">Manage tasks across the system.</p>
+                    <h1 className="text-2xl font-semibold tracking-tight">Admin Tasks</h1>
+                    <p className="text-sm text-muted-foreground">Manage all user tasks across the system.</p>
                 </div>
-
-                <Button
-                    className="gap-2"
-                    onClick={() => {
-                        setEditing(null);
-                        setEditorOpen(true);
-                    }}
-                >
-                    <Plus className="h-4 w-4" />
-                    New task
+                <Button className="gap-2" onClick={() => { setEditing(null); setEditorOpen(true); }}>
+                    <Plus className="h-4 w-4" /> New Task
                 </Button>
             </div>
 
@@ -626,74 +352,70 @@ export default function AdminTasksPage() {
 
             <div className="space-y-4">
                 <TaskToolbar
-                    query={query}
-                    setQuery={setQuery}
-                    status={status}
-                    setStatus={setStatus}
-                    priority={priority}
-                    setPriority={setPriority}
-                    sortKey={sortKey}
-                    setSortKey={setSortKey}
-                    rightSlot={
-                        <Button
-                            variant="secondary"
-                            onClick={() => {
-                                setQuery("");
-                                setStatus("ALL");
-                                setPriority("ALL");
-                                setSortKey("updatedAt");
-                            }}
-                        >
-                            Reset
-                        </Button>
-                    }
+                    query={query} setQuery={setQuery}
+                    status={status} setStatus={setStatus}
+                    sortKey={sortKey} setSortKey={setSortKey}
+                    rightSlot={<Button variant="secondary" onClick={() => { setQuery(""); setStatus("ALL"); setSortKey("id"); setPageNumber(0); }}>Reset</Button>}
                 />
 
                 <Card className="rounded-2xl border-border/60 bg-card shadow-sm">
                     <div className="p-4 sm:p-5">
                         {error && <ErrorState message={error} />}
-
-                        {isLoading ? (
-                            <TaskSkeleton />
-                        ) : filtered.length === 0 ? (
-                            <EmptyState title="No tasks found" hint="Try adjusting filters or create a new task." />
+                        {isLoading ? <TaskSkeleton /> : filtered.length === 0 ? (
+                            <EmptyState title="No tasks found" />
                         ) : (
-                            <TaskList
-                                tasks={filtered}
-                                onOpenTask={(t) => {
-                                    setSelected(t);
-                                    setDetailsOpen(true);
-                                }}
-                                onEdit={(t) => {
-                                    setEditing(t);
-                                    setEditorOpen(true);
-                                }}
-                                onAssign={(t) => {
-                                    // hook this to your Assign flow (dialog/sheet/search users)
-                                    setSelected(t);
-                                    setDetailsOpen(true);
-                                }}
-                                onDelete={async (t) => {
-                                    // recommend confirm dialog in real app
-                                    await deleteTask(t.id);
-                                }}
-                            />
+                            <div className="space-y-4">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Title</TableHead>
+                                            <TableHead>Owner ID</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filtered.map(t => (
+                                            <TableRow key={t.id} className="cursor-pointer" onClick={() => { setSelected(t); setDetailsOpen(true); }}>
+                                                <TableCell className="font-medium">{t.title}</TableCell>
+                                                <TableCell>{t.userId}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant={statusMeta[t.trackingStatus as Status].badge}>{t.trackingStatus}</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => { setEditing(t); setEditorOpen(true); }}>Edit</DropdownMenuItem>
+                                                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(t.id)}>Delete</DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+
+                                <div className="flex items-center justify-between mt-4">
+                                    <p className="text-sm text-muted-foreground">Page {pageNumber + 1} of {pageData?.totalPages || 1}</p>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" disabled={pageNumber === 0} onClick={() => setPageNumber(p => p - 1)}>Prev</Button>
+                                        <Button variant="outline" size="sm" disabled={pageData?.last} onClick={() => setPageNumber(p => p + 1)}>Next</Button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </Card>
             </div>
 
             <TaskDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} task={selected} />
-
             <TaskEditorDialog
                 open={editorOpen}
                 onOpenChange={setEditorOpen}
                 initial={editing}
-                title={editing ? "Edit task" : "Create task"}
-                onSave={async (payload) => {
-                    if (editing) await updateTask(editing.id, payload);
-                    else await createTask(payload);
-                }}
+                title={editing ? "Edit Task" : "Create Task"}
+                onSave={handleSave}
             />
         </div>
     );

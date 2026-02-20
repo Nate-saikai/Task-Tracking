@@ -31,8 +31,18 @@ export default function LoginPage() {
 
         try {
             if (mode === "login") {
-                await auth.login({ username, password });
-                nav(from, { replace: true });
+                // Capture the user object returned from login
+                const user = await auth.login({ username, password });
+
+                // If the user is an ADMIN, always send them to /admin/tasks.
+                // Only use the 'from' path for regular users.
+                const state = location.state as any;
+                const dest = user.role === "ADMIN"
+                    ? "/admin/tasks"
+                    : (state?.from?.pathname || "/app/tasks");
+
+                console.log("Redirecting to:", dest); // Debugging line
+                nav(dest, { replace: true });
                 return;
             }
 
