@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 // icons
-import { ListTodo, LogOut, Menu, Settings, Shield } from "lucide-react";
+import { ListTodo, LogOut, Menu, Settings, Shield, Users } from "lucide-react";
 
 type Props = {
     title: string;
@@ -40,13 +40,18 @@ export default function SidebarShell({ title, basePath }: Props) {
         navigate("/login", { replace: true });
     }
 
-    const navItems = React.useMemo(
-        () => [
+    const navItems = React.useMemo(() => {
+        const items = [
             { to: `${basePath}/tasks`, label: "Tasks", icon: ListTodo },
             { to: `${basePath}/settings`, label: "Settings", icon: Settings },
-        ],
-        [basePath]
-    );
+        ];
+
+        if (me?.role === "ADMIN") {
+            items.splice(1, 0, { to: `${basePath}/users`, label: "Users", icon: Users });
+        }
+
+        return items;
+    }, [basePath, me?.role]);
 
     const Nav = ({ onNavigate }: { onNavigate?: () => void }) => (
         <nav className="grid gap-1">

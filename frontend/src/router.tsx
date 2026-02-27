@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { RequireAuth } from "./auth/RequireAuth";
 import { RequireRole } from "./auth/RequireRole";
 
 import AdminLayout from "./layouts/AdminLayout";
@@ -10,6 +9,7 @@ import UserTasksPage from "./pages/user/UserTasksPage";
 import SettingsPage from "./pages/shared/SettingsPage";
 
 import LoginPage from "./pages/public/LoginPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
 
 export default function AppRouter() {
     return (
@@ -19,7 +19,7 @@ export default function AppRouter() {
                 <Route path="/login" element={<LoginPage />} />
 
                 {/* User area */}
-                <Route element={<RequireAuth />}>
+                <Route element={<RequireRole roles={["USER"]}  />}>
                     <Route path="/app" element={<UserLayout />}>
                         <Route index element={<Navigate to="tasks" replace />} />
                         <Route path="tasks" element={<UserTasksPage />} />
@@ -32,6 +32,7 @@ export default function AppRouter() {
                     <Route path="/admin" element={<AdminLayout />}>
                         <Route index element={<Navigate to="tasks" replace />} />
                         <Route path="tasks" element={<AdminTasksPage />} />
+                        <Route path="users" element={<AdminUsersPage />} />
                         <Route path="settings" element={<SettingsPage />} />
                     </Route>
                 </Route>
